@@ -96,6 +96,16 @@ const sleeveRight: Panel = {
 		["sode-shita-mae", SLEEVE_LENGTH, SLEEVE_WIDTH],
 		["sode-tsuke", 0, SLEEVE_WIDTH],
 	]),
+	// The sleeve is cut in one length and doubled over at 袖山, so the fold runs
+	// across the middle rather than being a seam anyone sews.
+	creases: [
+		{
+			id: "sode-yama",
+			name: "袖山",
+			a: { vertexId: "sode-guchi", at: SLEEVE_WIDTH / 2 },
+			b: { vertexId: "sode-tsuke", at: SLEEVE_WIDTH / 2 },
+		},
+	],
 }
 
 const collarRight: Panel = {
@@ -144,12 +154,14 @@ function sideSeams(front: Panel, back: Panel, sleeve: Panel, side: "右" | "左"
 			name: `肩縫い ${side}`,
 			a: { edge: edge(front, "mae-kata"), from: 0, to: SHOULDER },
 			b: { edge: edge(back, "ushiro-kubi"), from: 0, to: SHOULDER },
+			lie: "fold",
 		},
 		{
 			id: `waki-nui-${side}`,
 			name: `脇縫い ${side}`,
 			a: { edge: edge(front, "mae-katasaki"), from: closedFrom, to: BODY_LENGTH },
 			b: { edge: edge(back, "ushiro-katasaki"), from: closedFrom, to: BODY_LENGTH },
+			lie: "fold",
 		},
 		// 袖山 sits at the middle of the sleeve's 袖付け edge and meets the shoulder,
 		// so the sleeve runs outwards from there onto the front and onto the back.
@@ -159,12 +171,14 @@ function sideSeams(front: Panel, back: Panel, sleeve: Panel, side: "右" | "左"
 			a: { edge: edge(sleeve, "sode-tsuke"), from: 0, to: SLEEVE_WIDTH / 2 },
 			b: { edge: edge(front, "mae-katasaki"), from: 0, to: SLEEVE_REACH },
 			reversed: true,
+			lie: "open",
 		},
 		{
 			id: `sodetsuke-ushiro-${side}`,
 			name: `袖付け 後${side}`,
 			a: { edge: edge(sleeve, "sode-tsuke"), from: SLEEVE_WIDTH / 2, to: SLEEVE_WIDTH },
 			b: { edge: edge(back, "ushiro-katasaki"), from: 0, to: SLEEVE_REACH },
+			lie: "open",
 		},
 		{
 			id: `sodeshita-${side}`,
@@ -172,6 +186,7 @@ function sideSeams(front: Panel, back: Panel, sleeve: Panel, side: "右" | "左"
 			a: { edge: edge(sleeve, "sode-shita-ushiro"), from: 0, to: SLEEVE_LENGTH },
 			b: { edge: edge(sleeve, "sode-shita-mae"), from: 0, to: SLEEVE_LENGTH },
 			reversed: true,
+			lie: "fold",
 		},
 	]
 }
@@ -182,6 +197,7 @@ const seams: Seam[] = [
 		name: "背中心",
 		a: { edge: edge(backRight, "ushiro-suso-hidari"), from: 0, to: BACK_CENTRE },
 		b: { edge: edge(backLeft, "ushiro-suso-hidari"), from: 0, to: BACK_CENTRE },
+		lie: "open",
 	},
 	...sideSeams(frontRight, backRight, sleeveRight, "右"),
 	...sideSeams(frontLeft, backLeft, sleeveLeft, "左"),

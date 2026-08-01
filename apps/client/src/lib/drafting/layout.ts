@@ -1,5 +1,13 @@
-import { pointAlong } from "./assembly"
-import { type Draft, type EdgeRun, findPanel, type Panel, panelPath, type Seam } from "./draft"
+import { boundaryOffsets, pointAlong, pointAtBoundary } from "./assembly"
+import {
+	type Crease,
+	type Draft,
+	type EdgeRun,
+	findPanel,
+	type Panel,
+	panelPath,
+	type Seam,
+} from "./draft"
 import { flatten } from "./geometry/measure"
 import type { Point } from "./geometry/path"
 
@@ -18,9 +26,18 @@ export interface Matrix {
 
 export interface Placement {
 	readonly panelId: string
+	/**
+	 * Which side of the piece's fold this is, 0 before the fold and 1 after.
+	 *
+	 * A piece with a 折り山 lands in two places at once, so it is drawn twice, each
+	 * time showing only the half on its own side of the fold.
+	 */
+	readonly part: number
 	readonly matrix: Matrix
 	/** Whether the piece ends up wrong side out, which is how a pair is made from one outline. */
 	readonly flipped: boolean
+	/** The fold this half is clipped against, absent when the piece has none. */
+	readonly crease?: { readonly from: Point; readonly to: Point; readonly keep: number }
 }
 
 export interface Closure {
@@ -29,6 +46,16 @@ export interface Closure {
 	readonly from: Point
 	readonly to: Point
 	readonly gap: number
+}
+
+export interface AssembleOptions {
+	/**
+	 * Ignore every fold and spread the whole garment into one plane.
+	 *
+	 * Useful for checking that the pieces meet, since nothing then hides behind
+	 * anything else.
+	 */
+	readonly opened?: boolean
 }
 
 export interface Assembly {
@@ -121,6 +148,71 @@ function area(panel: Panel): number {
 	return (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))
 }
 
+/** The point on the outline where a fold meets it, in draft coordinates. */
+function creasePoint(draft: Draft, panelId: string, at: { vertexId: string; at: number }) {
+	return pointAlong(draft, { panelId, vertexId: at.vertexId }, at.at)
+}
+
+/** Where a fold's ends sit measured around the outline, so an edge can be told which half it is on. */
+function creaseSpan(draft: Draft, panel: Panel, crease: Crease): [number, number] | undefined {
+	const { offsets } = boundaryOffsets(draft, panel)
+	const start = offsets.get(crease.a.vertexId)
+	const end = offsets.get(crease.b.vertexId)
+
+	if (start === undefined || end === undefined) return undefined
+
+	const first = start + crease.a.at
+	const second = end + crease.b.at
+
+	return first <= second ? [first, second] : [second, first]
+}
+
+/** Which half of a folded piece an edge run falls on, judged by its middle. */
+function partOfRun(draft: Draft, panel: Panel, run: EdgeRun): number {
+	const crease = panel.creases?.[0]
+
+	if (crease === undefined) return 0
+
+	const span = creaseSpan(draft, panel, crease)
+	const { offsets } = boundaryOffsets(draft, panel)
+	const start = offsets.get(run.edge.vertexId)
+
+	if (span === undefined || start === undefined) return 0
+
+	const middle = start + (run.from + run.to) / 2
+
+	return middle >= span[0] && middle <= span[1] ? 0 : 1
+}
+
+/** Mirrors the plane about the line through two points, which is what folding flat does. */
+function reflectAcross(from: Point, to: Point): Matrix {
+	const spanX = to.x - from.x
+	const spanY = to.y - from.y
+	const length = Math.hypot(spanX, spanY)
+
+	if (length === 0) return IDENTITY
+
+	const dirX = spanX / length
+	const dirY = spanY / length
+
+	const a = dirX * dirX - dirY * dirY
+	const b = 2 * dirX * dirY
+	const moved = { x: a * from.x + b * from.y, y: b * from.x - a * from.y }
+
+	return { a, b, c: b, d: -a, e: from.x - moved.x, f: from.y - moved.y }
+}
+
+function compose(outer: Matrix, inner: Matrix): Matrix {
+	return {
+		a: outer.a * inner.a + outer.c * inner.b,
+		b: outer.b * inner.a + outer.d * inner.b,
+		c: outer.a * inner.c + outer.c * inner.d,
+		d: outer.b * inner.c + outer.d * inner.d,
+		e: outer.a * inner.e + outer.c * inner.f + outer.e,
+		f: outer.b * inner.e + outer.d * inner.f + outer.f,
+	}
+}
+
 /**
  * Opens the garment out flat by following its seams.
  *
@@ -130,8 +222,63 @@ function area(panel: Panel): number {
  * flat pieces this is not an approximation: it is the shape the cloth actually
  * takes when it is spread on a table.
  */
-export function assemble(draft: Draft): Assembly {
+export function assemble(draft: Draft, options: AssembleOptions = {}): Assembly {
 	const placements = new Map<string, Placement>()
+	const folding = options.opened !== true
+
+	/**
+	 * Both halves of a piece, once its 折り山 is taken into account.
+	 *
+	 * The far half is the near half mirrored about the fold, which is what laying
+	 * the cloth over on itself does. Without a fold there is only ever one half.
+	 */
+	function halvesOf(panel: Panel, base: Matrix, flipped: boolean): Placement[] {
+		const crease = folding ? panel.creases?.[0] : undefined
+
+		if (crease === undefined) return [{ panelId: panel.id, part: 0, matrix: base, flipped }]
+
+		const from = creasePoint(draft, panel.id, crease.a)
+		const to = creasePoint(draft, panel.id, crease.b)
+
+		if (from === undefined || to === undefined) {
+			return [{ panelId: panel.id, part: 0, matrix: base, flipped }]
+		}
+
+		const span = creaseSpan(draft, panel, crease)
+		const inside =
+			span === undefined ? undefined : pointAtBoundary(draft, panel, (span[0] + span[1]) / 2)
+
+		if (inside === undefined) {
+			return [{ panelId: panel.id, part: 0, matrix: base, flipped }]
+		}
+
+		// Both halves are clipped to the same side of the fold, because folding is
+		// precisely the far half coming to rest on top of the near one.
+		const line: [Point, Point] = [apply(base, from), apply(base, to)]
+		const keep = sideOf(line, apply(base, inside)) >= 0 ? 1 : -1
+		const shown = { from: line[0], to: line[1], keep }
+
+		return [
+			{ panelId: panel.id, part: 0, matrix: base, flipped, crease: shown },
+			{
+				panelId: panel.id,
+				part: 1,
+				matrix: compose(base, reflectAcross(from, to)),
+				flipped: !flipped,
+				crease: shown,
+			},
+		]
+	}
+
+	function place(panel: Panel, base: Matrix, flipped: boolean) {
+		for (const half of halvesOf(panel, base, flipped)) {
+			placements.set(`${half.panelId}#${half.part}`, half)
+		}
+	}
+
+	function matrixFor(panelId: string, part: number): Placement | undefined {
+		return placements.get(`${panelId}#${part}`) ?? placements.get(`${panelId}#0`)
+	}
 
 	function walk(from: string) {
 		const queue = [from]
@@ -147,17 +294,23 @@ export function assemble(draft: Draft): Assembly {
 			for (const seam of draft.seams) {
 				const neighbour = otherPanel(seam, current)
 
-				if (neighbour === undefined || placements.has(neighbour)) continue
+				if (neighbour === undefined) continue
+				if (placements.has(`${neighbour}#0`)) continue
 
-				const placed = placements.get(current)
 				const heldPanel = findPanel(draft, current)
 				const panel = findPanel(draft, neighbour)
 
-				if (placed === undefined || heldPanel === undefined || panel === undefined) continue
+				if (heldPanel === undefined || panel === undefined) continue
 
 				const onCurrent = seam.a.edge.panelId === current
-				const anchor = runEnds(draft, onCurrent ? seam.a : seam.b, false)
-				const target = runEnds(draft, onCurrent ? seam.b : seam.a, seam.reversed === true)
+				const heldRun = onCurrent ? seam.a : seam.b
+				const movingRun = onCurrent ? seam.b : seam.a
+				const placed = matrixFor(current, partOfRun(draft, heldPanel, heldRun))
+
+				if (placed === undefined) continue
+
+				const anchor = runEnds(draft, heldRun, false)
+				const target = runEnds(draft, movingRun, seam.reversed === true)
 
 				if (anchor === undefined || target === undefined) continue
 
@@ -168,13 +321,33 @@ export function assemble(draft: Draft): Assembly {
 
 				const keepSide = sideOf(seamLine, apply(placed.matrix, centroid(heldPanel)))
 				const straight = alignTo(target, seamLine, false)
-				const flip = sideOf(seamLine, apply(straight, centroid(panel))) * keepSide > 0
 
-				placements.set(neighbour, {
-					panelId: neighbour,
-					matrix: flip ? alignTo(target, seamLine, true) : straight,
-					flipped: flip !== placed.flipped,
-				})
+				// A seam that lies open puts the next piece beside this one; a seam that
+				// folds brings it back over the top, which is the same alignment taken to
+				// the other side of the seam line.
+				const folds = seam.lie === "fold" && folding
+				const sameSide = sideOf(seamLine, apply(straight, centroid(panel))) * keepSide > 0
+				const flip = folds ? !sameSide : sameSide
+				const base = flip ? alignTo(target, seamLine, true) : straight
+
+				// The moving piece was aligned by whichever of its halves this seam is on,
+				// so when that is the far half the whole piece has to come back across its
+				// own fold to sit right.
+				const movingPart = partOfRun(draft, panel, movingRun)
+				const crease = folding ? panel.creases?.[0] : undefined
+				const creaseFrom = crease === undefined ? undefined : creasePoint(draft, panel.id, crease.a)
+				const creaseTo = crease === undefined ? undefined : creasePoint(draft, panel.id, crease.b)
+
+				const settled =
+					movingPart === 1 && creaseFrom !== undefined && creaseTo !== undefined
+						? compose(base, reflectAcross(creaseFrom, creaseTo))
+						: base
+
+				place(
+					panel,
+					settled,
+					movingPart === 1 ? !(flip !== placed.flipped) : flip !== placed.flipped,
+				)
 
 				queue.push(neighbour)
 			}
@@ -187,19 +360,24 @@ export function assemble(draft: Draft): Assembly {
 	const loose: string[] = []
 
 	for (const panel of ordered) {
-		if (placements.has(panel.id)) continue
+		if (placements.has(`${panel.id}#0`)) continue
 
 		if (placements.size > 0) loose.push(panel.id)
 
-		placements.set(panel.id, { panelId: panel.id, matrix: IDENTITY, flipped: false })
+		place(panel, IDENTITY, false)
 		walk(panel.id)
 	}
 
 	const closures: Closure[] = []
 
 	for (const seam of draft.seams) {
-		const held = placements.get(seam.a.edge.panelId)
-		const moving = placements.get(seam.b.edge.panelId)
+		const heldPanel = findPanel(draft, seam.a.edge.panelId)
+		const movingPanel = findPanel(draft, seam.b.edge.panelId)
+
+		if (heldPanel === undefined || movingPanel === undefined) continue
+
+		const held = matrixFor(heldPanel.id, partOfRun(draft, heldPanel, seam.a))
+		const moving = matrixFor(movingPanel.id, partOfRun(draft, movingPanel, seam.b))
 
 		if (held === undefined || moving === undefined) continue
 

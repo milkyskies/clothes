@@ -100,3 +100,77 @@ describe("assemble", () => {
 		expect(assembled.loose).toContain("eri-migi")
 	})
 })
+
+describe("folding", () => {
+	const sewn = addSeam(
+		base,
+		{ panelId: "front", vertexId: "front-tr" },
+		{ panelId: "back", vertexId: "back-bl" },
+	)
+
+	const folded: Draft = {
+		...sewn,
+		seams: sewn.seams.map((seam) => ({ ...seam, lie: "fold" as const })),
+	}
+
+	const creased: Draft = {
+		...base,
+		panels: base.panels.map((panel) =>
+			panel.id === "front"
+				? {
+						...panel,
+						creases: [
+							{
+								id: "yama",
+								name: "袖山",
+								a: { vertexId: "front-tr", at: 35 },
+								b: { vertexId: "front-bl", at: 35 },
+							},
+						],
+					}
+				: panel,
+		),
+	}
+
+	it("brings_the_joined_piece_on_top_when_the_seam_folds", () => {
+		const front = placedPoint(folded, "front", "front-tl", 0)
+		const back = placedPoint(folded, "back", "back-tr", 0)
+
+		expect(Math.abs(back.x - front.x)).toBeLessThan(0.001)
+	})
+
+	it("spreads_the_same_garment_flat_when_asked_to_open_it", () => {
+		const assembled = assemble(folded, { opened: true })
+		const back = assembled.placements.find((entry) => entry.panelId === "back")
+
+		expect(back?.matrix.e).not.toBeCloseTo(0, 3)
+	})
+
+	it("splits_a_piece_folded_along_its_own_袖山_into_two_halves", () => {
+		const halves = assemble(creased).placements.filter((entry) => entry.panelId === "front")
+
+		expect(halves).toHaveLength(2)
+		expect(halves[0]?.flipped).toBe(false)
+		expect(halves[1]?.flipped).toBe(true)
+	})
+
+	it("lands_the_far_half_of_a_fold_on_top_of_the_near_one", () => {
+		const halves = assemble(creased).placements.filter((entry) => entry.panelId === "front")
+		const far = halves[1]
+
+		if (far === undefined) throw new Error("far half missing")
+
+		// Folding at y = 35 mirrors the piece about that line, which sends y to 70 − y.
+		expect(far.matrix.d).toBeCloseTo(-1, 6)
+		expect(far.matrix.f).toBeCloseTo(70, 6)
+	})
+
+	it("shows_the_whole_piece_again_once_the_fold_is_opened_out", () => {
+		const halves = assemble(creased, { opened: true }).placements.filter(
+			(entry) => entry.panelId === "front",
+		)
+
+		expect(halves).toHaveLength(1)
+		expect(halves[0]?.crease).toBeUndefined()
+	})
+})

@@ -1,5 +1,5 @@
 import { runLength } from "./assemble"
-import { edgeGaps, edgeLength, type Span, sameEdge } from "./assembly"
+import { boundaryOffsets, edgeGaps, type Span, sameEdge } from "./assembly"
 import { cuttingLayout } from "./cutting"
 import type { Draft, EdgeRef, Panel } from "./draft"
 import { findPanel } from "./draft"
@@ -46,24 +46,6 @@ function panelName(draft: Draft, panelId: string): string {
 
 function round(value: number): string {
 	return value.toFixed(1)
-}
-
-/**
- * Where each edge starts, measured around the panel outline from the first
- * vertex. Positions on this one scale are what let a run on one edge and a run
- * on the next be recognised as meeting at the corner between them.
- */
-function edgeOffsets(draft: Draft, panel: Panel): { offsets: Map<string, number>; total: number } {
-	const offsets = new Map<string, number>()
-
-	let cursor = 0
-
-	for (const vertex of panel.vertices) {
-		offsets.set(vertex.id, cursor)
-		cursor += edgeLength(draft, { panelId: panel.id, vertexId: vertex.id })
-	}
-
-	return { offsets, total: cursor }
 }
 
 function makeGroups() {
@@ -175,7 +157,7 @@ function boundaryRuns(draft: Draft): BoundaryRun[] {
 	const runs: BoundaryRun[] = []
 
 	for (const panel of draft.panels) {
-		const { offsets, total } = edgeOffsets(draft, panel)
+		const { offsets, total } = boundaryOffsets(draft, panel)
 
 		if (total <= 0) continue
 
@@ -214,7 +196,7 @@ function pointKey(panelId: string, at: number, total: number): string {
 function joinSeamEnds(draft: Draft, groups: ReturnType<typeof makeGroups>) {
 	const perimeters = new Map(
 		draft.panels.map((panel) => {
-			const measured = edgeOffsets(draft, panel)
+			const measured = boundaryOffsets(draft, panel)
 
 			return [panel.id, measured]
 		}),

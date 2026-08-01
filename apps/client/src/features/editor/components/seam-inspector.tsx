@@ -10,6 +10,7 @@ import {
 	renameSeam,
 	runLength,
 	seamMismatch,
+	setSeamLie,
 	setSeamRun,
 } from "@/lib/drafting/assemble"
 import { edgeLength } from "@/lib/drafting/assembly"
@@ -175,6 +176,35 @@ export function SeamInspector(props: SeamInspectorProps) {
 								{seam.reversed === true
 									? "後の辺を逆向きに合わせています。"
 									: "両方の辺を同じ向きに合わせています。"}
+							</p>
+						</div>
+
+						<div className="space-y-1.5">
+							<span className="text-xs text-muted-foreground">{"置いたときの形"}</span>
+
+							<div className="flex gap-0.5">
+								<Button
+									variant={seam.lie === "fold" ? "ghost" : "default"}
+									size="sm"
+									className="h-7 flex-1 text-xs"
+									onClick={() => props.editor.apply(setSeamLie(draft, seam.id, "open"))}
+								>
+									{"開く"}
+								</Button>
+								<Button
+									variant={seam.lie === "fold" ? "default" : "ghost"}
+									size="sm"
+									className="h-7 flex-1 text-xs"
+									onClick={() => props.editor.apply(setSeamLie(draft, seam.id, "fold"))}
+								>
+									{"折る"}
+								</Button>
+							</div>
+
+							<p className="text-xs text-muted-foreground">
+								{seam.lie === "fold"
+									? "台の上では、相手の部品がこちらの上に重なります。"
+									: "台の上では、両方の部品が横に並びます。"}
 							</p>
 						</div>
 

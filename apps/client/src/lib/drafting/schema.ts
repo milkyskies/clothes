@@ -18,6 +18,26 @@ export const VertexSchema = Schema.Struct({
 	bowAt: Schema.optional(Schema.Number),
 })
 
+export const CreasePointSchema = Schema.Struct({
+	vertexId: Schema.String,
+	/** How far along that edge the fold meets the outline, in centimetres. */
+	at: Schema.Number,
+})
+
+/**
+ * A line the cloth folds along inside a piece, rather than where two pieces meet.
+ *
+ * 袖山 and 肩山 are folds, not seams: the cloth is cut in one length and doubled
+ * over. Nothing is sewn there, so it changes what the garment looks like without
+ * changing what is cut.
+ */
+export const CreaseSchema = Schema.Struct({
+	id: Schema.String,
+	name: Schema.String,
+	a: CreasePointSchema,
+	b: CreasePointSchema,
+})
+
 export const PanelSchema = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
@@ -27,6 +47,7 @@ export const PanelSchema = Schema.Struct({
 	x: Schema.Number,
 	y: Schema.Number,
 	vertices: Schema.Array(VertexSchema),
+	creases: Schema.optional(Schema.Array(CreaseSchema)),
 })
 
 export const EdgeRefSchema = Schema.Struct({
@@ -53,6 +74,14 @@ export const SeamSchema = Schema.Struct({
 	 * than assumed. Absent reads as start meeting start.
 	 */
 	reversed: Schema.optional(Schema.Boolean),
+	/**
+	 * How the seam sits when the garment is laid on a table.
+	 *
+	 * 背中心 lies open and its two halves stay side by side; 肩縫い folds, and the
+	 * front comes to rest on top of the back. Which one a seam does is part of
+	 * the garment rather than something its lengths reveal.
+	 */
+	lie: Schema.optional(Schema.Literal("open", "fold")),
 })
 
 export const StitchKindSchema = Schema.Literal("finish", "topstitch", "bartack", "hand")
@@ -110,6 +139,7 @@ export const DraftSchema = Schema.Struct({
 })
 
 export type Vertex = Schema.Schema.Type<typeof VertexSchema>
+export type Crease = Schema.Schema.Type<typeof CreaseSchema>
 export type Panel = Schema.Schema.Type<typeof PanelSchema>
 export type EdgeRef = Schema.Schema.Type<typeof EdgeRefSchema>
 export type EdgeRun = Schema.Schema.Type<typeof EdgeRunSchema>

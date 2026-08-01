@@ -5,6 +5,7 @@ import type { Draft, Panel, Vertex } from "./schema"
 export type {
 	Annotation,
 	BodyReference,
+	Crease,
 	Draft,
 	EdgeRef,
 	EdgeRun,

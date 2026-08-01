@@ -40,6 +40,7 @@ export function addSeam(document: Draft, a: EdgeRef, b: EdgeRef): Draft {
 		a: { edge: a, from: 0, to: edgeLength(document, a) },
 		b: { edge: b, from: 0, to: edgeLength(document, b) },
 		reversed: looksReversed(document, a, b),
+		lie: "open",
 	}
 
 	return { ...document, seams: [...document.seams, seam] }
@@ -67,6 +68,13 @@ export function flipSeam(document: Draft, seamId: string): Draft {
 		seams: document.seams.map((seam) =>
 			seam.id === seamId ? { ...seam, reversed: seam.reversed !== true } : seam,
 		),
+	}
+}
+
+export function setSeamLie(document: Draft, seamId: string, lie: "open" | "fold"): Draft {
+	return {
+		...document,
+		seams: document.seams.map((seam) => (seam.id === seamId ? { ...seam, lie } : seam)),
 	}
 }
 

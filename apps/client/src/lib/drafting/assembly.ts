@@ -1,4 +1,12 @@
-import { type Draft, type EdgeRef, type EdgeRun, findPanel, panelPath, vertexIndex } from "./draft"
+import {
+	type Draft,
+	type EdgeRef,
+	type EdgeRun,
+	findPanel,
+	type Panel,
+	panelPath,
+	vertexIndex,
+} from "./draft"
 import { flatten, segmentLength } from "./geometry/measure"
 import { type Point, segmentStart } from "./geometry/path"
 
@@ -71,6 +79,50 @@ export function pointAlong(draft: Draft, edge: EdgeRef, distance: number): Point
 	const last = samples[samples.length - 1]
 
 	return last === undefined ? undefined : { x: panel.x + last.x, y: panel.y + last.y }
+}
+
+/**
+ * Where each edge starts, measured around the outline from the first vertex.
+ *
+ * Positions on this one scale are what let a run on one edge and a run on the
+ * next be recognised as meeting at the corner between them.
+ */
+export function boundaryOffsets(
+	draft: Draft,
+	panel: Panel,
+): { offsets: Map<string, number>; total: number } {
+	const offsets = new Map<string, number>()
+
+	let cursor = 0
+
+	for (const vertex of panel.vertices) {
+		offsets.set(vertex.id, cursor)
+		cursor += edgeLength(draft, { panelId: panel.id, vertexId: vertex.id })
+	}
+
+	return { offsets, total: cursor }
+}
+
+/** The point a given distance around the outline, measured from the first vertex. */
+export function pointAtBoundary(draft: Draft, panel: Panel, at: number): Point | undefined {
+	const { offsets, total } = boundaryOffsets(draft, panel)
+
+	if (total <= 0) return undefined
+
+	const wrapped = ((at % total) + total) % total
+
+	for (const vertex of panel.vertices) {
+		const start = offsets.get(vertex.id)
+
+		if (start === undefined) continue
+
+		const edge = { panelId: panel.id, vertexId: vertex.id }
+		const length = edgeLength(draft, edge)
+
+		if (wrapped <= start + length) return pointAlong(draft, edge, wrapped - start)
+	}
+
+	return undefined
 }
 
 function merge(spans: readonly Span[]): Span[] {
