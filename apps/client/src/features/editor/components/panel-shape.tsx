@@ -1,14 +1,7 @@
 import { edgeGaps } from "@/lib/drafting/assembly"
-import {
-	type Document,
-	type Panel,
-	panelAllowance,
-	panelPath,
-	vertexPoint,
-} from "@/lib/drafting/document"
+import { type Document, type Panel, panelPath, vertexPoint } from "@/lib/drafting/document"
 import { flatten } from "@/lib/drafting/geometry/measure"
-import { offsetPath } from "@/lib/drafting/geometry/offset"
-import { pathToSvg, verticesToSvg } from "@/lib/drafting/geometry/svg"
+import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import type { Selection } from "../use-editor"
 import { useSvgPointDrag } from "../use-svg-point-drag"
 
@@ -18,7 +11,6 @@ interface PanelShapeProps {
 	unit: number
 	selection: Selection
 	interactive: boolean
-	showAllowance: boolean
 	onSelectPanel: () => void
 	onSelectEdge: (vertexId: string) => void
 	onMovePanel: (x: number, y: number, done: boolean) => void
@@ -58,7 +50,7 @@ function mirrorAcrossFold(panel: Panel): string | undefined {
 }
 
 /**
- * Draws the outline, the cut line, and the runs of each edge that no seam
+ * Draws the outline the piece is cut on, and the runs of each edge that no seam
  * covers. Those gaps are what a sewer reads as 脇あき or 身八つ口; nothing in
  * here knows those words.
  */
@@ -70,7 +62,6 @@ export function PanelShape(props: PanelShapeProps) {
 	})
 
 	const path = panelPath(props.panel)
-	const cut = offsetPath(path, panelAllowance(props.panel, props.document.defaultAllowance))
 	const selected = props.selection.panelId === props.panel.id
 
 	// 「わ」 means the piece is cut against a fold, so what is drawn is half of it. Reflecting the outline shows the other half without it becoming real geometry.
@@ -115,17 +106,6 @@ export function PanelShape(props: PanelShapeProps) {
 
 	return (
 		<g transform={`translate(${props.panel.x} ${props.panel.y})`}>
-			{props.showAllowance ? (
-				<path
-					d={verticesToSvg(cut)}
-					fill="none"
-					stroke="var(--color-cut)"
-					strokeWidth={props.unit * 0.14}
-					strokeDasharray={`${props.unit} ${props.unit * 0.6}`}
-					pointerEvents="none"
-				/>
-			) : null}
-
 			<path
 				d={pathToSvg(path)}
 				fill={selected ? "var(--color-accent)" : "var(--color-muted)"}

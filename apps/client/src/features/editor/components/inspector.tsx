@@ -13,7 +13,6 @@ import {
 	insertVertex,
 	moveVertex,
 	roundCorner,
-	setEdgeAllowance,
 	setFoldEdge,
 	updatePanel,
 } from "@/lib/drafting/edit"
@@ -242,15 +241,6 @@ export function Inspector(props: InspectorProps) {
 							<span className="tnum text-sm">
 								{`${edgeLength(document, { panelId: panel.id, vertexId: edgeVertexId }).toFixed(1)} cm`}
 							</span>
-						</Field>
-
-						<Field label="縫い代">
-							<NumberField
-								value={panel.allowance[edgeVertexId] ?? document.defaultAllowance}
-								onChange={(next) =>
-									props.editor.apply(setEdgeAllowance(document, panel.id, edgeVertexId, next))
-								}
-							/>
 						</Field>
 
 						<Field label="わ（折り山）">

@@ -25,8 +25,6 @@ export interface Panel {
 	readonly x: number
 	readonly y: number
 	readonly vertices: readonly Vertex[]
-	/** Seam allowance per edge, keyed by the id of the vertex the edge leaves. */
-	readonly allowance: Readonly<Record<string, number>>
 }
 
 /** An edge is the run leaving `vertexId`, so inserting points elsewhere does not renumber it. */
@@ -88,7 +86,6 @@ export interface Document {
 	readonly stitches: readonly Stitch[]
 	readonly annotations: readonly Annotation[]
 	readonly body: BodyReference
-	readonly defaultAllowance: number
 }
 
 export function findPanel(document: Document, panelId: string): Panel | undefined {
@@ -140,11 +137,4 @@ export function panelPath(panel: Panel): Path {
 	})
 
 	return { start: vertexPoint(first), segments }
-}
-
-export function panelAllowance(
-	panel: Panel,
-	fallback: number,
-): { perEdge: Record<string, number>; fallback: number } {
-	return { perEdge: { ...panel.allowance }, fallback }
 }

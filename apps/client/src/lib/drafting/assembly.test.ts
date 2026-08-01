@@ -15,7 +15,6 @@ function rectangle(id: string, width: number, height: number): Panel {
 			{ id: `${id}-br`, x: width, y: height },
 			{ id: `${id}-bl`, x: 0, y: height },
 		],
-		allowance: {},
 	}
 }
 
@@ -28,7 +27,6 @@ function documentWith(seams: readonly Seam[]): Document {
 		stitches: [],
 		annotations: [],
 		body: { chest: 96, height: 170, shoulderWidth: 46, armLength: 58 },
-		defaultAllowance: 1.5,
 	}
 }
 

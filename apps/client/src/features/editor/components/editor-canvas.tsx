@@ -14,7 +14,7 @@ const TICK_SPACING = 10
  * drawn. Deriving it from the drawing made the viewBox change as pieces moved,
  * which read as the canvas zooming on its own mid-drag.
  */
-const FRAME_CM = 120
+const FRAME_CM = 180
 const GRID_EXTENT_CM = 600
 
 /** One centimetre, so stroke widths and type sizes below are read as real lengths. */
@@ -198,7 +198,6 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						unit={UNIT}
 						selection={props.editor.selection}
 						interactive={props.editor.tool === "select"}
-						showAllowance={props.editor.showAllowance}
 						onSelectPanel={() => props.editor.select({ panelId: panel.id })}
 						onSelectEdge={(vertexId) =>
 							props.editor.select({ panelId: panel.id, edgeVertexId: vertexId })

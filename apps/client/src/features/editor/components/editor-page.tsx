@@ -3,7 +3,7 @@ import { MousePointer2, PenLine, Redo2, Square, Undo2 } from "lucide-react"
 import { Button } from "@/features/shared/ui/button"
 import { Separator } from "@/features/shared/ui/separator"
 import { addRectanglePanel } from "@/lib/drafting/edit"
-import { emptyDocument } from "@/lib/drafting/templates/empty"
+import { jinbeiTop } from "@/lib/drafting/templates/jinbei"
 import { type Tool, useEditor } from "../use-editor"
 import { EditorCanvas } from "./editor-canvas"
 import { Inspector } from "./inspector"
@@ -16,7 +16,7 @@ const TOOLS: readonly { value: Tool; label: string; icon: typeof PenLine }[] = [
 const SNAPS: readonly number[] = [0, 0.5, 1]
 
 export function EditorPage() {
-	const editor = useEditor(emptyDocument())
+	const editor = useEditor(jinbeiTop())
 
 	useHotkey("Mod+Z", () => editor.undo(), { ignoreInputs: true })
 	useHotkey("Mod+Shift+Z", () => editor.redo(), { ignoreInputs: true })
@@ -101,17 +101,6 @@ export function EditorPage() {
 							</Button>
 						))}
 					</div>
-
-					<Separator orientation="vertical" className="h-6" />
-
-					<Button
-						variant={editor.showAllowance ? "default" : "outline"}
-						size="sm"
-						className="h-7 text-xs"
-						onClick={() => editor.setShowAllowance(!editor.showAllowance)}
-					>
-						{"縫い代を見る"}
-					</Button>
 
 					<span className="ml-auto text-sm">{editor.document.name}</span>
 				</header>

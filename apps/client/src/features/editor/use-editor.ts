@@ -17,13 +17,11 @@ export interface Editor {
 	readonly tool: Tool
 	readonly selection: Selection
 	readonly snap: number
-	readonly showAllowance: boolean
 	readonly canUndo: boolean
 	readonly canRedo: boolean
 	readonly setTool: (tool: Tool) => void
 	readonly select: (selection: Selection) => void
 	readonly setSnap: (snap: number) => void
-	readonly setShowAllowance: (show: boolean) => void
 	/** `coalesce` keeps a drag as a single history entry by replacing the top of the stack. */
 	readonly apply: (next: Document, coalesce?: boolean) => void
 	readonly undo: () => void
@@ -44,7 +42,6 @@ export function useEditor(initial: Document): Editor {
 	const [tool, setTool] = useState<Tool>("select")
 	const [selection, setSelection] = useState<Selection>({})
 	const [snap, setSnap] = useState(0.5)
-	const [showAllowance, setShowAllowance] = useState(false)
 
 	const apply = useCallback(
 		(next: Document, coalesce = false) => {
@@ -91,17 +88,15 @@ export function useEditor(initial: Document): Editor {
 			tool,
 			selection,
 			snap,
-			showAllowance,
 			canUndo: past.length > 0,
 			canRedo: future.length > 0,
 			setTool,
 			select: setSelection,
 			setSnap,
-			setShowAllowance,
 			apply,
 			undo,
 			redo,
 		}),
-		[apply, future.length, past.length, present, redo, selection, showAllowance, snap, tool, undo],
+		[apply, future.length, past.length, present, redo, selection, snap, tool, undo],
 	)
 }

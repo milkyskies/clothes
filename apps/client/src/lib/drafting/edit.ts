@@ -178,29 +178,7 @@ export function setFoldEdge(
 
 	if (panel === undefined) return document
 
-	const allowance = { ...panel.allowance }
-
-	if (panel.foldEdge !== undefined) delete allowance[panel.foldEdge]
-	// A fold is not cut, so it never carries seam allowance.
-	if (vertexId !== undefined) allowance[vertexId] = 0
-
-	return replacePanel(document, { ...panel, foldEdge: vertexId, allowance })
-}
-
-export function setEdgeAllowance(
-	document: Document,
-	panelId: string,
-	vertexId: string,
-	allowance: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
-
-	if (panel === undefined) return document
-
-	return replacePanel(document, {
-		...panel,
-		allowance: { ...panel.allowance, [vertexId]: allowance },
-	})
+	return replacePanel(document, { ...panel, foldEdge: vertexId })
 }
 
 export function updatePanel(
@@ -244,7 +222,6 @@ export function addRectanglePanel(
 					x,
 					y,
 					vertices,
-					allowance: {},
 				},
 			],
 		},
@@ -277,7 +254,6 @@ export function addPolygonPanel(
 						x: entry.x - originX,
 						y: entry.y - originY,
 					})),
-					allowance: {},
 				},
 			],
 		},
