@@ -6,7 +6,7 @@ import type { Point } from "@/lib/drafting/geometry/path"
 import { assemble, type Matrix } from "@/lib/drafting/layout"
 
 /** Particle spacing in centimetres. Finer drapes better and costs quadratically. */
-const SPACING = 3.5
+const SPACING = 3
 
 export interface ClothMesh {
 	/** xyz per particle, already arranged around the body. */
@@ -20,6 +20,13 @@ export interface ClothMesh {
 	readonly bends: readonly { a: number; b: number; rest: number }[]
 	/** Pairs a seam holds together at distance zero. */
 	readonly seams: readonly { a: number; b: number }[]
+	/** Pairs a knot or button holds together, closed only once the garment is on. */
+	readonly ties: readonly { a: number; b: number }[]
+	/**
+	 * Panels stitched onto another panel's face, with their host. The pair lies
+	 * deliberately stacked, so cloth-to-cloth repulsion between them is wrong.
+	 */
+	readonly stacked: readonly { a: string; b: string }[]
 	readonly panelOf: Uint16Array
 	readonly panelIds: readonly string[]
 }
@@ -206,6 +213,7 @@ export function buildClothMesh(draft: Draft, shoulderY: number): ClothMesh {
 	const edges: { a: number; b: number; rest: number }[] = []
 	const bends: { a: number; b: number; rest: number }[] = []
 	const seams: { a: number; b: number }[] = []
+	const ties: { a: number; b: number }[] = []
 	const tags = new Map<string, BoundaryTag[]>()
 
 	const placed = assembly.placements.filter((entry) => !loose.has(entry.panelId))
@@ -462,14 +470,38 @@ export function buildClothMesh(draft: Draft, shoulderY: number): ClothMesh {
 		}
 	}
 
+	// A knot holds cloth together the way a seam does, but not from the same
+	// moment: seams exist before the garment goes on, knots are tied afterwards.
+	// The 甚平's ties run diagonally, and closing them while the cloth was still
+	// weightless dragged the whole garment sideways off the shoulders.
+	const guideIds = new Set(
+		draft.panels.flatMap((panel) => (panel.guides ?? []).map((guide) => `${panel.id}/${guide.id}`)),
+	)
+
+	const stacked: { a: string; b: string }[] = []
+
+	for (const seam of draft.seams) {
+		const onGuide =
+			guideIds.has(`${seam.a.edge.panelId}/${seam.a.edge.vertexId}`) ||
+			guideIds.has(`${seam.b.edge.panelId}/${seam.b.edge.vertexId}`)
+
+		if (onGuide && seam.a.edge.panelId !== seam.b.edge.panelId) {
+			stacked.push({ a: seam.a.edge.panelId, b: seam.b.edge.panelId })
+		}
+	}
+
 	const joins = [
-		...draft.seams.map((seam) => ({ a: seam.a, b: seam.b, reversed: seam.reversed === true })),
-		// A tied 紐 or a button holds cloth together exactly the way a seam does
-		// while the garment is worn, so a fastening becomes the same constraint.
+		...draft.seams.map((seam) => ({
+			a: seam.a,
+			b: seam.b,
+			reversed: seam.reversed === true,
+			into: seams,
+		})),
 		...(draft.fastenings ?? []).map((fastening) => ({
 			a: fastening.a,
 			b: fastening.b,
 			reversed: false,
+			into: ties,
 		})),
 	]
 
@@ -487,7 +519,7 @@ export function buildClothMesh(draft: Draft, shoulderY: number): ClothMesh {
 
 			if (a === undefined || b === undefined) continue
 
-			seams.push({ a: a.index, b: b.index })
+			join.into.push({ a: a.index, b: b.index })
 		}
 	}
 
@@ -498,6 +530,8 @@ export function buildClothMesh(draft: Draft, shoulderY: number): ClothMesh {
 		edges,
 		bends,
 		seams,
+		ties,
+		stacked,
 		panelOf: new Uint16Array(panelOf),
 		panelIds,
 	}

@@ -235,7 +235,14 @@ function Cloth(props: ClothProps) {
 
 	return (
 		<mesh geometry={geometry} onPointerDown={pickUp}>
-			<meshStandardMaterial color="#3b4a86" roughness={0.85} side={DoubleSide} />
+			<meshPhysicalMaterial
+				color="#3b4a86"
+				roughness={0.9}
+				sheen={1}
+				sheenRoughness={0.55}
+				sheenColor="#8fa0d8"
+				side={DoubleSide}
+			/>
 		</mesh>
 	)
 }
