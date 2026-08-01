@@ -24,6 +24,7 @@ interface GridProps {
 	unit: number
 	extent: number
 	ticks: readonly number[]
+	tickSize: number
 }
 
 function Grid(props: GridProps) {
@@ -63,8 +64,8 @@ function Grid(props: GridProps) {
 				y1={0}
 				x2={props.extent}
 				y2={0}
-				stroke="var(--color-muted-foreground)"
-				strokeWidth={props.unit * 0.16}
+				stroke="var(--color-grid-strong)"
+				strokeWidth={props.unit * 0.12}
 				pointerEvents="none"
 			/>
 
@@ -73,28 +74,28 @@ function Grid(props: GridProps) {
 				y1={-props.extent}
 				x2={0}
 				y2={props.extent}
-				stroke="var(--color-muted-foreground)"
-				strokeWidth={props.unit * 0.16}
+				stroke="var(--color-grid-strong)"
+				strokeWidth={props.unit * 0.12}
 				pointerEvents="none"
 			/>
 
 			{props.ticks.map((value) => (
-				<g key={value} pointerEvents="none">
+				<g key={value} pointerEvents="none" opacity={0.75}>
 					<text
 						x={value}
-						y={-props.unit * 1.2}
+						y={-props.tickSize * 0.6}
 						textAnchor="middle"
-						fontSize={props.unit * 2}
+						fontSize={props.tickSize}
 						fill="var(--color-muted-foreground)"
 					>
 						{value}
 					</text>
 					<text
-						x={-props.unit * 1.2}
+						x={-props.tickSize * 0.5}
 						y={value}
 						textAnchor="end"
 						dominantBaseline="central"
-						fontSize={props.unit * 2}
+						fontSize={props.tickSize}
 						fill="var(--color-muted-foreground)"
 					>
 						{value}
@@ -122,6 +123,10 @@ export function EditorCanvas(props: EditorCanvasProps) {
 		{ length: Math.floor(GRID_EXTENT_CM / TICK_SPACING) * 2 + 1 },
 		(_, index) => (index - Math.floor(GRID_EXTENT_CM / TICK_SPACING)) * TICK_SPACING,
 	).filter((value) => value !== 0)
+
+	// Axis figures are annotation, not drawing, so they hold their size on screen
+	// rather than growing with the cloth as the view zooms in.
+	const tickSize = (FRAME_CM / view.zoom) * 0.016
 
 	function toDocumentPoint(event: ReactMouseEvent<SVGSVGElement>): { x: number; y: number } {
 		const svg = event.currentTarget
@@ -188,7 +193,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 				className={`h-full w-full ${props.editor.tool === "pen" ? "cursor-crosshair" : "cursor-grab"}`}
 				onClick={handleCanvasClick}
 			>
-				<Grid unit={UNIT} extent={GRID_EXTENT_CM} ticks={ticks} />
+				<Grid unit={UNIT} extent={GRID_EXTENT_CM} ticks={ticks} tickSize={tickSize} />
 
 				{props.editor.document.panels.map((panel) => (
 					<PanelShape
@@ -198,6 +203,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						unit={UNIT}
 						selection={props.editor.selection}
 						interactive={props.editor.tool === "select"}
+						labelSize={tickSize}
 						onSelectPanel={() => props.editor.select({ panelId: panel.id })}
 						onSelectEdge={(vertexId) =>
 							props.editor.select({ panelId: panel.id, edgeVertexId: vertexId })
@@ -271,12 +277,6 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					/>
 				))}
 			</svg>
-
-			<div className="pointer-events-none absolute bottom-3 left-3 rounded-md border bg-background/90 px-2.5 py-1.5 text-xs text-muted-foreground backdrop-blur">
-				{props.editor.tool === "pen"
-					? "点を置いて、最初の点に戻ると閉じます"
-					: "パーツを押すと点をつかめます"}
-			</div>
 		</div>
 	)
 }

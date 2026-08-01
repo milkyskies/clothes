@@ -10,10 +10,14 @@ import {
 	deletePanel,
 	deleteVertex,
 	duplicatePanel,
+	edgeBow,
 	insertVertex,
+	isCurvedEdge,
 	moveVertex,
 	roundCorner,
+	setEdgeBow,
 	setFoldEdge,
+	sharpenCorner,
 	updatePanel,
 } from "@/lib/drafting/edit"
 import type { Editor } from "../use-editor"
@@ -202,7 +206,9 @@ export function Inspector(props: InspectorProps) {
 						<Separator />
 
 						<p className="text-xs text-muted-foreground">
-							{"角を丸める。手前の辺と先の辺から何cm戻すかで決めます。"}
+							{
+								"この点の角を丸めます。手前の辺と先の辺をそれぞれ何cm戻すと決めると、その2点をつなぐカーブになります。"
+							}
 						</p>
 
 						<Field label="手前から">
@@ -242,6 +248,34 @@ export function Inspector(props: InspectorProps) {
 								{`${edgeLength(document, { panelId: panel.id, vertexId: edgeVertexId }).toFixed(1)} cm`}
 							</span>
 						</Field>
+
+						<Field label="ふくらみ">
+							<NumberField
+								value={edgeBow(panel, edgeVertexId)}
+								step={0.1}
+								onChange={(next) =>
+									props.editor.apply(setEdgeBow(document, panel.id, edgeVertexId, next))
+								}
+							/>
+						</Field>
+
+						<p className="text-xs text-muted-foreground">
+							{"0でまっすぐ。数字を入れると、その深さだけ辺がふくらみます。"}
+						</p>
+
+						{isCurvedEdge(panel, edgeVertexId) ? (
+							<Button
+								variant="outline"
+								size="sm"
+								className="w-full text-xs"
+								onClick={() => {
+									props.editor.apply(sharpenCorner(document, panel.id, edgeVertexId))
+									props.editor.select({ panelId: panel.id })
+								}}
+							>
+								{"角に戻す"}
+							</Button>
+						) : null}
 
 						<Field label="わ（折り山）">
 							<input

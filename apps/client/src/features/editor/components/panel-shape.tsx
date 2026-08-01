@@ -1,6 +1,8 @@
-import { edgeGaps } from "@/lib/drafting/assembly"
+import { useState } from "react"
+import { edgeGaps, seamRunsOn } from "@/lib/drafting/assembly"
 import { type Document, type Panel, panelPath, vertexPoint } from "@/lib/drafting/document"
-import { flatten } from "@/lib/drafting/geometry/measure"
+import { flatten, segmentLength } from "@/lib/drafting/geometry/measure"
+import { type Point, type Segment, segmentStart } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import type { Selection } from "../use-editor"
 import { useSvgPointDrag } from "../use-svg-point-drag"
@@ -11,9 +13,70 @@ interface PanelShapeProps {
 	unit: number
 	selection: Selection
 	interactive: boolean
+	labelSize: number
 	onSelectPanel: () => void
 	onSelectEdge: (vertexId: string) => void
 	onMovePanel: (x: number, y: number, done: boolean) => void
+}
+
+/**
+ * Points along a single edge, including its end.
+ *
+ * `flatten` omits each segment's final point because the next segment supplies
+ * it, which for one segment in isolation leaves a straight edge with a single
+ * point and therefore no length, no midpoint and nothing to click.
+ */
+function edgePoints(from: Point, segment: Segment): Point[] {
+	const sampled = flatten({ start: from, segments: [segment] }).map((entry) => entry.point)
+
+	return [...sampled, segment.to]
+}
+
+/**
+ * The point half way along a sampled edge, measured by distance rather than by
+ * sample index: a straight edge has only two samples, and a curve's samples are
+ * spaced by parameter rather than evenly, so neither midpoint is the middle one.
+ */
+function midpointOf(samples: readonly Point[]): Point {
+	const first = samples[0]
+	const last = samples[samples.length - 1]
+
+	if (first === undefined || last === undefined) return { x: 0, y: 0 }
+
+	let total = 0
+
+	for (let index = 1; index < samples.length; index += 1) {
+		const previous = samples[index - 1]
+		const current = samples[index]
+
+		if (previous === undefined || current === undefined) continue
+
+		total += Math.hypot(current.x - previous.x, current.y - previous.y)
+	}
+
+	let travelled = 0
+
+	for (let index = 1; index < samples.length; index += 1) {
+		const previous = samples[index - 1]
+		const current = samples[index]
+
+		if (previous === undefined || current === undefined) continue
+
+		const step = Math.hypot(current.x - previous.x, current.y - previous.y)
+
+		if (travelled + step >= total / 2) {
+			const along = step === 0 ? 0 : (total / 2 - travelled) / step
+
+			return {
+				x: previous.x + (current.x - previous.x) * along,
+				y: previous.y + (current.y - previous.y) * along,
+			}
+		}
+
+		travelled += step
+	}
+
+	return { x: (first.x + last.x) / 2, y: (first.y + last.y) / 2 }
 }
 
 function mirrorAcrossFold(panel: Panel): string | undefined {
@@ -61,8 +124,11 @@ export function PanelShape(props: PanelShapeProps) {
 		onChange: props.onMovePanel,
 	})
 
+	const [hovered, setHovered] = useState<string | undefined>(undefined)
+
 	const path = panelPath(props.panel)
 	const selected = props.selection.panelId === props.panel.id
+	const active = hovered ?? props.selection.edgeVertexId
 
 	// 「わ」 means the piece is cut against a fold, so what is drawn is half of it. Reflecting the outline shows the other half without it becoming real geometry.
 	const mirrored = mirrorAcrossFold(props.panel)
@@ -77,8 +143,45 @@ export function PanelShape(props: PanelShapeProps) {
 			props.panel.vertices.length,
 	}
 
+	const edges = props.panel.vertices.flatMap((vertex, index) => {
+		const segment = path.segments[index]
+
+		if (segment === undefined) return []
+
+		const from = segmentStart(path, index)
+		const samples = edgePoints(from, segment)
+		const middle = midpointOf(samples)
+
+		const spanX = segment.to.x - from.x
+		const spanY = segment.to.y - from.y
+		const span = Math.hypot(spanX, spanY) || 1
+
+		const normalX = -spanY / span
+		const normalY = spanX / span
+		const outward = normalX * (middle.x - centre.x) + normalY * (middle.y - centre.y) >= 0 ? 1 : -1
+		const awayX = normalX * outward
+		const awayY = normalY * outward
+
+		const standoff = props.labelSize * 1.2
+
+		return [
+			{
+				vertexId: vertex.id,
+				points: samples.map((entry) => `${entry.x},${entry.y}`).join(" "),
+				labelX: middle.x + awayX * standoff,
+				labelY: middle.y + awayY * standoff,
+				length: segmentLength(from, segment),
+			},
+		]
+	})
+
+	// A gap is only worth marking where sewing stops short. An edge no seam touches
+	// is not an opening, it is a piece that has not been assembled yet.
 	const gapSegments = props.panel.vertices.flatMap((vertex) => {
 		const edge = { panelId: props.panel.id, vertexId: vertex.id }
+
+		if (seamRunsOn(props.document, edge).length === 0) return []
+
 		const spans = edgeGaps(props.document, edge)
 
 		if (spans.length === 0) return []
@@ -88,7 +191,7 @@ export function PanelShape(props: PanelShapeProps) {
 
 		if (segment === undefined) return []
 
-		const samples = flatten({ start: vertexPoint(vertex), segments: [segment] })
+		const samples = edgePoints(vertexPoint(vertex), segment)
 
 		return spans.map((span) => {
 			const total = samples.length - 1
@@ -99,7 +202,7 @@ export function PanelShape(props: PanelShapeProps) {
 
 			return {
 				key: `${vertex.id}-${span.from}`,
-				points: slice.map((entry) => `${entry.point.x},${entry.point.y}`).join(" "),
+				points: slice.map((entry) => `${entry.x},${entry.y}`).join(" "),
 			}
 		})
 	})
@@ -150,37 +253,66 @@ export function PanelShape(props: PanelShapeProps) {
 			))}
 
 			{props.interactive
-				? props.panel.vertices.map((vertex, index) => {
-						const segment = path.segments[index]
-
-						if (segment === undefined) return null
-
-						const midX = (vertex.x + segment.to.x) / 2
-						const midY = (vertex.y + segment.to.y) / 2
-
-						return (
-							// biome-ignore lint/a11y/noStaticElementInteractions: keyboard reach is provided by the inspector edge list.
-							<circle
-								key={`${vertex.id}-edge`}
-								cx={midX}
-								cy={midY}
-								r={props.unit * 0.9}
-								fill={
-									props.selection.edgeVertexId === vertex.id
-										? "var(--color-foreground)"
-										: "transparent"
-								}
-								stroke="var(--color-muted-foreground)"
-								strokeWidth={props.unit * 0.12}
-								className="cursor-pointer"
-								onClick={(event) => {
-									event.stopPropagation()
-									props.onSelectEdge(vertex.id)
-								}}
-							/>
-						)
-					})
+				? edges.map((edge) => (
+						// biome-ignore lint/a11y/noStaticElementInteractions: keyboard reach is provided by the inspector edge list.
+						<polyline
+							key={`${edge.vertexId}-hit`}
+							points={edge.points}
+							fill="none"
+							// Hit testing needs a genuinely painted stroke, so this is drawn rather than made transparent.
+							stroke="var(--color-foreground)"
+							strokeOpacity={0.001}
+							strokeWidth={props.labelSize * 1.3}
+							strokeLinecap="round"
+							pointerEvents="stroke"
+							className="cursor-pointer"
+							onPointerEnter={() => setHovered(edge.vertexId)}
+							onPointerLeave={() => setHovered(undefined)}
+							onPointerDown={(event) => {
+								event.stopPropagation()
+								props.onSelectEdge(edge.vertexId)
+							}}
+						/>
+					))
 				: null}
+
+			{props.interactive
+				? edges
+						.filter((edge) => edge.vertexId === active)
+						.map((edge) => (
+							<polyline
+								key={`${edge.vertexId}-active`}
+								points={edge.points}
+								fill="none"
+								stroke="var(--color-foreground)"
+								strokeWidth={props.unit * 0.6}
+								strokeLinecap="round"
+								opacity={0.35}
+								pointerEvents="none"
+							/>
+						))
+				: null}
+
+			{edges
+				.filter((edge) => edge.vertexId === active)
+				.map((edge) => (
+					<text
+						key={`${edge.vertexId}-dim`}
+						x={edge.labelX}
+						y={edge.labelY}
+						textAnchor="middle"
+						dominantBaseline="central"
+						fontSize={props.labelSize}
+						fill="var(--color-foreground)"
+						paintOrder="stroke"
+						stroke="var(--color-background)"
+						strokeWidth={props.labelSize * 0.5}
+						strokeLinejoin="round"
+						pointerEvents="none"
+					>
+						{`${edge.length.toFixed(1)} cm`}
+					</text>
+				))}
 
 			{mirrored === undefined ? null : (
 				<path
