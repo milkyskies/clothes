@@ -16,6 +16,7 @@ import { edgeLength } from "@/lib/drafting/assembly"
 import type { EdgeRun, Seam } from "@/lib/drafting/draft"
 import { findPanel } from "@/lib/drafting/draft"
 import type { Editor } from "../use-editor"
+import { StitchSection } from "./stitch-section"
 
 function edgeName(editor: Editor, run: EdgeRun): string {
 	return findPanel(editor.draft, run.edge.panelId)?.name ?? "?"
@@ -79,6 +80,11 @@ interface SeamInspectorProps {
 export function SeamInspector(props: SeamInspectorProps) {
 	const { draft, selection } = props.editor
 	const seam = selection.seamId === undefined ? undefined : findSeam(draft, selection.seamId)
+
+	const chosenEdge =
+		selection.panelId === undefined || selection.edgeVertexId === undefined
+			? undefined
+			: { panelId: selection.panelId, vertexId: selection.edgeVertexId }
 
 	return (
 		<div className="flex h-full flex-col overflow-y-auto">
@@ -184,6 +190,8 @@ export function SeamInspector(props: SeamInspectorProps) {
 					</section>
 				</>
 			)}
+
+			{chosenEdge === undefined ? null : <StitchSection editor={props.editor} edge={chosenEdge} />}
 		</div>
 	)
 }

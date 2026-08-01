@@ -31,6 +31,7 @@ import { snapValue } from "../use-editor"
 import { ContextMenu, type MenuTarget } from "./context-menu"
 import { PanelShape } from "./panel-shape"
 import { SeamLayer } from "./seam-layer"
+import { StitchLayer } from "./stitch-layer"
 import { VertexHandles } from "./vertex-handles"
 
 const MARGIN = 20
@@ -433,6 +434,8 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						}
 					/>
 				))}
+
+				<StitchLayer draft={props.editor.draft} screen={view.screen} selectedStitchId={undefined} />
 
 				<SeamLayer
 					draft={props.editor.draft}
