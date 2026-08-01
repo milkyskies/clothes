@@ -9,6 +9,9 @@ const GRAVITY = -981
 const DAMPING = 0.985
 /** Cloth keeps the garment slightly away from the skin, like real ease. */
 const CLEARANCE = 1
+/** How close two unrelated bits of cloth may come before they push apart. */
+const CLOTH_RADIUS = 1.6
+const HASH_SIZE = 4096
 
 export interface Capsule {
 	readonly ax: number
@@ -20,15 +23,64 @@ export interface Capsule {
 	readonly radius: number
 }
 
+export interface Grab {
+	readonly index: number
+	readonly x: number
+	readonly y: number
+	readonly z: number
+}
+
 export interface ClothState {
 	readonly positions: Float32Array
 	readonly previous: Float32Array
+	/**
+	 * Pairs self-collision must ignore, packed as a·n+b with a<b: mesh
+	 * neighbours, sewn pairs, and everything one ring around a sewn pair —
+	 * repulsion there would fight the seam that is meant to hold them together.
+	 */
+	readonly excluded: Set<number>
+	readonly cellHead: Int32Array
+	readonly cellNext: Int32Array
 }
 
 export function stateOf(mesh: ClothMesh): ClothState {
+	const count = mesh.positions.length / 3
+	const excluded = new Set<number>()
+	const neighbours = new Map<number, number[]>()
+
+	const exclude = (a: number, b: number) => {
+		if (a === b) return
+
+		excluded.add(Math.min(a, b) * count + Math.max(a, b))
+	}
+
+	for (const edge of mesh.edges) {
+		exclude(edge.a, edge.b)
+
+		const heldA = neighbours.get(edge.a) ?? []
+		const heldB = neighbours.get(edge.b) ?? []
+
+		heldA.push(edge.b)
+		heldB.push(edge.a)
+		neighbours.set(edge.a, heldA)
+		neighbours.set(edge.b, heldB)
+	}
+
+	for (const bend of mesh.bends) exclude(bend.a, bend.b)
+
+	for (const seam of mesh.seams) {
+		exclude(seam.a, seam.b)
+
+		for (const near of neighbours.get(seam.a) ?? []) exclude(near, seam.b)
+		for (const near of neighbours.get(seam.b) ?? []) exclude(near, seam.a)
+	}
+
 	return {
 		positions: new Float32Array(mesh.positions),
 		previous: new Float32Array(mesh.positions),
+		excluded,
+		cellHead: new Int32Array(HASH_SIZE),
+		cellNext: new Int32Array(count),
 	}
 }
 
@@ -98,12 +150,87 @@ function pushOutOfCapsule(positions: Float32Array, index: number, capsule: Capsu
 	positions[index * 3 + 2] = pz + dz * push
 }
 
+function cellOf(x: number, y: number, z: number): number {
+	const ix = Math.floor(x / CLOTH_RADIUS)
+	const iy = Math.floor(y / CLOTH_RADIUS)
+	const iz = Math.floor(z / CLOTH_RADIUS)
+
+	// Large primes scatter neighbouring cells across the table; the unsigned
+	// shift keeps the index inside the array for negative coordinates.
+	return (((ix * 92837111) ^ (iy * 689287499) ^ (iz * 283923481)) >>> 0) % HASH_SIZE
+}
+
+/**
+ * Keeps cloth from passing through cloth.
+ *
+ * Every particle goes into a coarse spatial hash, then any two strangers that
+ * end up closer than a cloth thickness push apart. Neighbours along the weave
+ * and sewn partners are exempt, or the repulsion would fight the seams.
+ */
+function selfCollide(state: ClothState) {
+	const { positions, excluded, cellHead, cellNext } = state
+	const count = positions.length / 3
+
+	cellHead.fill(-1)
+
+	for (let index = 0; index < count; index += 1) {
+		const cell = cellOf(
+			positions[index * 3] ?? 0,
+			positions[index * 3 + 1] ?? 0,
+			positions[index * 3 + 2] ?? 0,
+		)
+
+		cellNext[index] = cellHead[cell] ?? -1
+		cellHead[cell] = index
+	}
+
+	for (let index = 0; index < count; index += 1) {
+		const px = positions[index * 3] ?? 0
+		const py = positions[index * 3 + 1] ?? 0
+		const pz = positions[index * 3 + 2] ?? 0
+
+		for (let ox = -1; ox <= 1; ox += 1) {
+			for (let oy = -1; oy <= 1; oy += 1) {
+				for (let oz = -1; oz <= 1; oz += 1) {
+					const cell = cellOf(
+						px + ox * CLOTH_RADIUS,
+						py + oy * CLOTH_RADIUS,
+						pz + oz * CLOTH_RADIUS,
+					)
+
+					for (let other = cellHead[cell] ?? -1; other !== -1; other = cellNext[other] ?? -1) {
+						if (other <= index) continue
+						if (excluded.has(index * count + other)) continue
+
+						const dx = (positions[other * 3] ?? 0) - px
+						const dy = (positions[other * 3 + 1] ?? 0) - py
+						const dz = (positions[other * 3 + 2] ?? 0) - pz
+						const squared = dx * dx + dy * dy + dz * dz
+
+						if (squared >= CLOTH_RADIUS * CLOTH_RADIUS || squared < 1e-9) continue
+
+						const distance = Math.sqrt(squared)
+						const push = ((CLOTH_RADIUS - distance) / distance) * 0.5
+
+						positions[index * 3] = px - dx * push
+						positions[index * 3 + 1] = py - dy * push
+						positions[index * 3 + 2] = pz - dz * push
+						positions[other * 3] = (positions[other * 3] ?? 0) + dx * push
+						positions[other * 3 + 1] = (positions[other * 3 + 1] ?? 0) + dy * push
+						positions[other * 3 + 2] = (positions[other * 3 + 2] ?? 0) + dz * push
+					}
+				}
+			}
+		}
+	}
+}
+
 /**
  * Advances the cloth one frame.
  *
- * Seam constraints ramp in over the first moments so pieces that start apart
- * are drawn together instead of snapped, which is the difference between the
- * garment closing around the body and the garment exploding.
+ * Seams close first and gravity waits its turn: zipping the garment shut
+ * around the body while it is weightless, then letting it drop the last
+ * centimetres onto the shoulders, is what tailors do with pins.
  */
 export function step(
 	mesh: ClothMesh,
@@ -111,14 +238,11 @@ export function step(
 	capsules: readonly Capsule[],
 	dt: number,
 	settle: number,
+	grab?: Grab,
 ) {
 	const h = dt / SUBSTEPS
 	const { positions, previous } = state
 	const count = positions.length / 3
-
-	// Seams close first and gravity waits its turn: zipping the garment shut
-	// around the body while it is weightless, then letting it drop the last
-	// centimetres onto the shoulders, is what tailors do with pins.
 	const seamStrength = Math.min(1, 0.3 + settle) * 0.9
 	const gravity = GRAVITY * Math.max(0, Math.min(1, settle - 0.7))
 
@@ -152,10 +276,23 @@ export function step(
 			projectPair(positions, seam.a, seam.b, 0, seamStrength)
 		}
 
+		// Cloth barely moves inside one substep, so colliding on every third one
+		// buys back most of the cost without letting anything tunnel.
+		if (sub % 3 === 0) selfCollide(state)
+
 		for (let index = 0; index < count; index += 1) {
 			for (const capsule of capsules) {
 				pushOutOfCapsule(positions, index, capsule)
 			}
+		}
+
+		if (grab !== undefined) {
+			positions[grab.index * 3] = grab.x
+			positions[grab.index * 3 + 1] = grab.y
+			positions[grab.index * 3 + 2] = grab.z
+			previous[grab.index * 3] = grab.x
+			previous[grab.index * 3 + 1] = grab.y
+			previous[grab.index * 3 + 2] = grab.z
 		}
 	}
 }

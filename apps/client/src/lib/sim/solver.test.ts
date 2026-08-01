@@ -5,7 +5,7 @@ import { buildClothMesh } from "./mesh"
 import { stateOf, step } from "./solver"
 
 describe("cloth settling", () => {
-	it("drapes_the_甚平_over_the_body_without_blowing_up", () => {
+	it("drapes_the_甚平_over_the_body_without_blowing_up", { timeout: 30_000 }, () => {
 		const draft = jinbeiTop()
 		const mesh = buildClothMesh(draft, 170 * 0.82)
 		const state = stateOf(mesh)

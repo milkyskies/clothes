@@ -9,6 +9,7 @@ export type {
 	Draft,
 	EdgeRef,
 	EdgeRun,
+	Fastening,
 	Panel,
 	Seam,
 	Stitch,

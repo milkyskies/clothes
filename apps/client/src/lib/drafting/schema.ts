@@ -96,6 +96,18 @@ export const StitchSchema = Schema.Struct({
 	thread: Schema.String,
 })
 
+/**
+ * Two runs held together when the garment is worn but never sewn: a tied 紐,
+ * a button, a snap. The wearing views close them; the sewing views leave them
+ * open, which is exactly how the real garment behaves on the table.
+ */
+export const FasteningSchema = Schema.Struct({
+	id: Schema.String,
+	name: Schema.String,
+	a: EdgeRunSchema,
+	b: EdgeRunSchema,
+})
+
 export const AnnotationSchema = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
@@ -134,6 +146,7 @@ export const DraftSchema = Schema.Struct({
 	seams: Schema.Array(SeamSchema),
 	stitches: Schema.Array(StitchSchema),
 	annotations: Schema.Array(AnnotationSchema),
+	fastenings: Schema.optional(Schema.Array(FasteningSchema)),
 	body: BodyReferenceSchema,
 	fabric: Schema.optionalWith(FabricSchema, { default: () => DEFAULT_FABRIC }),
 })
@@ -146,6 +159,7 @@ export type EdgeRun = Schema.Schema.Type<typeof EdgeRunSchema>
 export type Seam = Schema.Schema.Type<typeof SeamSchema>
 export type StitchKind = Schema.Schema.Type<typeof StitchKindSchema>
 export type Stitch = Schema.Schema.Type<typeof StitchSchema>
+export type Fastening = Schema.Schema.Type<typeof FasteningSchema>
 export type Annotation = Schema.Schema.Type<typeof AnnotationSchema>
 export type BodyReference = Schema.Schema.Type<typeof BodyReferenceSchema>
 export type Draft = Schema.Schema.Type<typeof DraftSchema>

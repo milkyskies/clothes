@@ -408,13 +408,24 @@ export function buildClothMesh(draft: Draft, shoulderY: number): ClothMesh {
 		}
 	}
 
-	for (const seam of draft.seams) {
-		const sideA = collectRun(tags, seam.a)
-		const sideB = collectRun(tags, seam.b)
+	const joins = [
+		...draft.seams.map((seam) => ({ a: seam.a, b: seam.b, reversed: seam.reversed === true })),
+		// A tied 紐 or a button holds cloth together exactly the way a seam does
+		// while the garment is worn, so a fastening becomes the same constraint.
+		...(draft.fastenings ?? []).map((fastening) => ({
+			a: fastening.a,
+			b: fastening.b,
+			reversed: false,
+		})),
+	]
+
+	for (const join of joins) {
+		const sideA = collectRun(tags, join.a)
+		const sideB = collectRun(tags, join.b)
 
 		if (sideA.length === 0 || sideB.length === 0) continue
 
-		const orderedB = seam.reversed === true ? [...sideB].reverse() : sideB
+		const orderedB = join.reversed ? [...sideB].reverse() : sideB
 
 		for (let step = 0; step < sideA.length; step += 1) {
 			const a = sideA[step]

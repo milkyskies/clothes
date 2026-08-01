@@ -1,5 +1,5 @@
 import { edgeLength } from "../assembly"
-import type { Annotation, Draft, EdgeRef, Panel, Seam, Vertex } from "../draft"
+import type { Annotation, Draft, EdgeRef, Fastening, Panel, Seam, Vertex } from "../draft"
 
 /**
  * 甚平（上）, M size, taken from a commercial 製図 whose figures are 縫い代込み.
@@ -312,6 +312,40 @@ export function jinbeiTop(): Draft {
 		},
 	]
 
+	// Worn, the right front goes under and ties to the left side; the left front
+	// goes over and ties to the right. The knots are what keep a 甚平 closed —
+	// there is not a single fastening stitch on the garment.
+	const fastenings: Fastening[] = [
+		{
+			id: "musubi-uchi",
+			name: "内ひも結び",
+			a: {
+				edge: { panelId: "himo-mae-migi", vertexId: "himo-mae-migi-c" },
+				from: 0,
+				to: TIE_WIDTH,
+			},
+			b: {
+				edge: { panelId: "himo-ushiro-hidari", vertexId: "himo-ushiro-hidari-c" },
+				from: 0,
+				to: TIE_WIDTH,
+			},
+		},
+		{
+			id: "musubi-soto",
+			name: "外ひも結び",
+			a: {
+				edge: { panelId: "himo-mae-hidari", vertexId: "himo-mae-hidari-c" },
+				from: 0,
+				to: TIE_WIDTH,
+			},
+			b: {
+				edge: { panelId: "himo-ushiro-migi", vertexId: "himo-ushiro-migi-c" },
+				from: 0,
+				to: TIE_WIDTH,
+			},
+		},
+	]
+
 	const seams: Seam[] = [
 		{
 			id: "se-chushin",
@@ -375,6 +409,7 @@ export function jinbeiTop(): Draft {
 		seams,
 		stitches: [],
 		annotations,
+		fastenings,
 		body: { chest: 96, height: 170, shoulderWidth: 46, armLength: 58 },
 		fabric: { name: "広幅", width: 110 },
 	}

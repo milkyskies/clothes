@@ -30,11 +30,12 @@ describe("buildClothMesh", () => {
 			const dy = (mesh.positions[seam.a * 3 + 1] ?? 0) - (mesh.positions[seam.b * 3 + 1] ?? 0)
 			const dz = (mesh.positions[seam.a * 3 + 2] ?? 0) - (mesh.positions[seam.b * 3 + 2] ?? 0)
 
-			if (Math.hypot(dx, dy, dz) > 60) far += 1
+			if (Math.hypot(dx, dy, dz) > 160) far += 1
 		}
 
-		// The two sides of a seam start on opposite faces of the body at worst, so
-		// anything further apart than the body is deep points at a pairing bug.
+		// A sewn pair starts on opposite faces of the body at worst, and the tips
+		// of a pair of 紐 dangle from opposite sides before their knot pulls them
+		// in; anything further than that points at a pairing bug.
 		expect(far).toBe(0)
 	})
 
@@ -47,5 +48,17 @@ describe("buildClothMesh", () => {
 
 		expect(zs.has(1)).toBe(true)
 		expect(zs.has(-1)).toBe(true)
+	})
+})
+
+describe("fastenings", () => {
+	it("ties_the_himo_pairs_the_way_the_garment_is_worn", () => {
+		const untied = { ...jinbeiTop(), fastenings: [] }
+		const tied = jinbeiTop()
+
+		const meshUntied = buildClothMesh(untied, 140)
+		const meshTied = buildClothMesh(tied, 140)
+
+		expect(meshTied.seams.length).toBeGreaterThan(meshUntied.seams.length)
 	})
 })

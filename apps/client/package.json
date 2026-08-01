@@ -15,7 +15,6 @@
 	"dependencies": {
 		"@base-ui/react": "^1.4.1",
 		"@clothes/api": "workspace:*",
-		"@react-three/drei": "^10.7.7",
 		"@react-three/fiber": "^9.6.1",
 		"@remixicon/react": "^4.5.0",
 		"@tanstack/react-hotkeys": "^0.10.0",
@@ -46,6 +45,7 @@
 		"@types/delaunator": "^5.0.3",
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
+		"@types/three": "^0.185.1",
 		"@vitejs/plugin-react": "^4.3.4",
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.7.0",
