@@ -1,5 +1,5 @@
-import { edgeGaps, pointAlong, seamRunsOn } from "@/lib/drafting/assembly"
-import { type Draft, type EdgeRef, findPanel, panelBounds } from "@/lib/drafting/draft"
+import { edgeGaps, pointAlong, sameEdge } from "@/lib/drafting/assembly"
+import { type Draft, type EdgeRef, findPanel, panelBounds, type Seam } from "@/lib/drafting/draft"
 import type { Point } from "@/lib/drafting/geometry/path"
 import type { Assembly, Matrix, Placement } from "@/lib/drafting/layout"
 
@@ -34,12 +34,37 @@ export function midOf(points: readonly Point[]): Point | undefined {
 	return points[Math.floor(points.length / 2)]
 }
 
-/** What has happened to an edge: the stretches that are sewn, and the ones still open. */
-export function edgeState(draft: Draft, edge: EdgeRef) {
-	return {
-		sewn: seamRunsOn(draft, edge).map((run) => ({ from: run.from, to: run.to })),
-		gaps: edgeGaps(draft, edge),
-	}
+export type Stretch =
+	| { readonly kind: "seam"; readonly seam: Seam; readonly from: number; readonly to: number }
+	| { readonly kind: "gap"; readonly from: number; readonly to: number }
+
+/**
+ * An edge broken into the stretches something actually happened to.
+ *
+ * A collar's inner edge carries four separate 衿付け seams end to end, so
+ * "the edge" is never the thing anyone means. Every click, colour and verb
+ * works on one of these instead, and then ほどく can only ever unpick the one
+ * under the pointer.
+ */
+export function edgeStretches(draft: Draft, edge: EdgeRef): Stretch[] {
+	const sewn = draft.seams.flatMap((seam) =>
+		[seam.a, seam.b]
+			.filter((run) => sameEdge(run.edge, edge))
+			.map((run) => ({
+				kind: "seam" as const,
+				seam,
+				from: Math.min(run.from, run.to),
+				to: Math.max(run.from, run.to),
+			})),
+	)
+
+	const gaps = edgeGaps(draft, edge).map((span) => ({
+		kind: "gap" as const,
+		from: span.from,
+		to: span.to,
+	}))
+
+	return [...sewn, ...gaps].sort((left, right) => left.from - right.from)
 }
 
 /**

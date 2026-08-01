@@ -118,6 +118,24 @@ export function FinishedView(props: FinishedViewProps) {
 				/>
 
 				<defs>
+					<pattern
+						id="finished-ura-hatch"
+						width={1.4}
+						height={1.4}
+						patternUnits="userSpaceOnUse"
+						patternTransform="rotate(45)"
+					>
+						<line
+							x1={0}
+							y1={0}
+							x2={0}
+							y2={1.4}
+							stroke="var(--color-foreground)"
+							strokeOpacity={0.18}
+							strokeWidth={0.25}
+						/>
+					</pattern>
+
 					{ordered.map((placement) =>
 						placement.crease === undefined ? null : (
 							<clipPath
@@ -155,12 +173,16 @@ export function FinishedView(props: FinishedViewProps) {
 								<path
 									d={pathToSvg(panelPath(panel))}
 									fill="var(--color-foreground)"
-									fillOpacity={placement.flipped ? 0.12 : 0.06}
+									fillOpacity={0.06}
 									stroke="var(--color-foreground)"
 									strokeWidth={view.screen(1)}
 									strokeOpacity={0.3}
 									strokeLinejoin="round"
 								/>
+
+								{placement.flipped ? (
+									<path d={pathToSvg(panelPath(panel))} fill="url(#finished-ura-hatch)" />
+								) : null}
 							</g>
 
 							{openEdges(draft, placement).map((run) => (
@@ -216,8 +238,9 @@ export function FinishedView(props: FinishedViewProps) {
 				<p>
 					{opened
 						? "折りをほどいて平らに広げた形です。どの部品も他に隠れません。"
-						: "台の上に置いた形です。うすい面は裏を向いている部品です。"}
+						: "台の上に置いた形です。"}
 				</p>
+				<p>{"無地＝表が上 ・ 斜線＝裏が上"}</p>
 				{assembly.loose.length === 0 ? null : (
 					<p>{`${assembly.loose.length}枚がまだどこにも付いていません（うすく表示）。`}</p>
 				)}

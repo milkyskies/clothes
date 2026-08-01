@@ -6,7 +6,7 @@ import type { Point } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import { assemble, type Placement } from "@/lib/drafting/layout"
 import { selectionActions } from "../actions"
-import { applyMatrix, edgeState, midOf, runPolyline, tidied } from "../assembled-geometry"
+import { applyMatrix, edgeStretches, midOf, runPolyline, tidied } from "../assembled-geometry"
 import { useCanvasView } from "../use-canvas-view"
 import type { Editor } from "../use-editor"
 import { ContextMenu, type MenuTarget } from "./context-menu"
@@ -44,7 +44,7 @@ interface AssembleViewProps {
  */
 export function AssembleView(props: AssembleViewProps) {
 	const containerRef = useRef<HTMLDivElement>(null)
-	const [hovered, setHovered] = useState<EdgeRef | undefined>(undefined)
+	const [hovered, setHovered] = useState<string | undefined>(undefined)
 	const [menu, setMenu] = useState<MenuTarget | undefined>(undefined)
 
 	const pending = props.editor.pending
@@ -76,14 +76,12 @@ export function AssembleView(props: AssembleViewProps) {
 		return placements.find((entry) => entry.panelId === panelId)?.matrix
 	}
 
-	function choose(edge: EdgeRef) {
-		// Picking an edge picks the seam on it too, so the verbs above the canvas
-		// have something named to act on instead of a bare edge.
-		props.editor.select({
-			panelId: edge.panelId,
-			edgeVertexId: edge.vertexId,
-			seamId: seamsOnEdge(draft, edge)[0]?.id,
-		})
+	function choose(edge: EdgeRef, seamId?: string) {
+		props.editor.select({ panelId: edge.panelId, edgeVertexId: edge.vertexId, seamId })
+	}
+
+	function sew(edge: EdgeRef) {
+		choose(edge, undefined)
 
 		if (pending === undefined) {
 			setPending(edge)
@@ -125,15 +123,13 @@ export function AssembleView(props: AssembleViewProps) {
 		)
 	}
 
-	function edgeMenu(edge: EdgeRef, event: ReactMouseEvent) {
+	function edgeMenu(edge: EdgeRef, seamId: string | undefined, event: ReactMouseEvent) {
 		event.preventDefault()
-		choose(edge)
-
-		const held = seamsOnEdge(draft, edge)
+		choose(edge, seamId)
 
 		const built = selectionActions({
 			...props.editor,
-			selection: { panelId: edge.panelId, edgeVertexId: edge.vertexId, seamId: held[0]?.id },
+			selection: { panelId: edge.panelId, edgeVertexId: edge.vertexId, seamId },
 		})
 
 		setMenu({
@@ -149,27 +145,20 @@ export function AssembleView(props: AssembleViewProps) {
 		})
 	}
 
-	function edgesOf(placement: Placement) {
+	function stretchesOf(placement: Placement) {
 		const panel = findPanel(draft, placement.panelId)
 
 		if (panel === undefined) return []
 
-		return panel.vertices.map((vertex) => {
+		return panel.vertices.flatMap((vertex) => {
 			const edge: EdgeRef = { panelId: panel.id, vertexId: vertex.id }
-			const state = edgeState(draft, edge)
 
-			return {
+			return edgeStretches(draft, edge).map((stretch) => ({
+				key: `${vertex.id}-${stretch.kind}-${stretch.from.toFixed(2)}`,
 				edge,
-				whole: runPolyline(draft, placement.matrix, edge, 0, edgeLength(draft, edge)),
-				gaps: state.gaps.map((span) => ({
-					key: `${vertex.id}-gap-${span.from}`,
-					points: runPolyline(draft, placement.matrix, edge, span.from, span.to),
-				})),
-				sewn: state.sewn.map((span) => ({
-					key: `${vertex.id}-sewn-${span.from}`,
-					points: runPolyline(draft, placement.matrix, edge, span.from, span.to),
-				})),
-			}
+				stretch,
+				points: runPolyline(draft, placement.matrix, edge, stretch.from, stretch.to),
+			}))
 		})
 	}
 
@@ -193,6 +182,27 @@ export function AssembleView(props: AssembleViewProps) {
 					setPending(undefined)
 				}}
 			>
+				<defs>
+					{/* The wrong side of the cloth, drawn the way 製図 convention hatches 裏. */}
+					<pattern
+						id="ura-hatch"
+						width={1.4}
+						height={1.4}
+						patternUnits="userSpaceOnUse"
+						patternTransform="rotate(45)"
+					>
+						<line
+							x1={0}
+							y1={0}
+							x2={0}
+							y2={1.4}
+							stroke="var(--color-foreground)"
+							strokeOpacity={0.18}
+							strokeWidth={0.25}
+						/>
+					</pattern>
+				</defs>
+
 				<rect
 					x={-3000}
 					y={-3000}
@@ -219,57 +229,59 @@ export function AssembleView(props: AssembleViewProps) {
 									fill="var(--color-foreground)"
 									fillOpacity={placement.panelId === selection.panelId ? 0.09 : 0.04}
 								/>
+
+								{placement.flipped ? (
+									<path d={pathToSvg(panelPath(panel))} fill="url(#ura-hatch)" />
+								) : null}
 							</g>
 
 							{labelOf(placement)}
 
-							{edgesOf(placement).map((entry) => {
-								const held = pending !== undefined && sameEdge(pending, entry.edge)
-								const picked = chosen !== undefined && sameEdge(chosen, entry.edge)
-								const under = hovered !== undefined && sameEdge(hovered, entry.edge)
+							{stretchesOf(placement).map((entry) => {
+								const seamId = entry.stretch.kind === "seam" ? entry.stretch.seam.id : undefined
+								const held =
+									pending !== undefined &&
+									sameEdge(pending, entry.edge) &&
+									entry.stretch.kind === "gap"
+								const picked =
+									seamId !== undefined
+										? seamId === selection.seamId
+										: chosen !== undefined &&
+											sameEdge(chosen, entry.edge) &&
+											selection.seamId === undefined
+								const under = hovered === entry.key
 
 								return (
-									<g key={entry.edge.vertexId}>
-										{entry.sewn.map((run) => (
-											<polyline
-												key={run.key}
-												points={pointsOf(run.points)}
-												fill="none"
-												stroke="var(--color-seam)"
-												strokeWidth={view.screen(1.6)}
-												strokeLinecap="round"
-												opacity={0.5}
-												pointerEvents="none"
-											/>
-										))}
+									<g key={entry.key}>
+										<polyline
+											points={pointsOf(entry.points)}
+											fill="none"
+											stroke={
+												entry.stretch.kind === "gap" ? "var(--color-cut)" : "var(--color-seam)"
+											}
+											strokeWidth={view.screen(
+												picked || under || held ? 4 : entry.stretch.kind === "gap" ? 2.4 : 1.6,
+											)}
+											strokeLinecap="round"
+											opacity={entry.stretch.kind === "gap" ? 1 : picked || under ? 0.9 : 0.5}
+											pointerEvents="none"
+										/>
 
-										{entry.gaps.map((run) => (
+										{held ? (
 											<polyline
-												key={run.key}
-												points={pointsOf(run.points)}
+												points={pointsOf(entry.points)}
 												fill="none"
-												stroke="var(--color-cut)"
-												strokeWidth={view.screen(2.4)}
+												stroke="var(--color-ring)"
+												strokeWidth={view.screen(6)}
 												strokeLinecap="round"
-												pointerEvents="none"
-											/>
-										))}
-
-										{held || picked || under ? (
-											<polyline
-												points={pointsOf(entry.whole)}
-												fill="none"
-												stroke={held ? "var(--color-ring)" : "var(--color-foreground)"}
-												strokeWidth={view.screen(held ? 5 : 3.5)}
-												strokeLinecap="round"
-												opacity={held ? 0.9 : picked ? 0.4 : 0.2}
+												opacity={0.6}
 												pointerEvents="none"
 											/>
 										) : null}
 
-										{/* biome-ignore lint/a11y/noStaticElementInteractions: every edge is also reachable from the seam list. */}
+										{/* biome-ignore lint/a11y/noStaticElementInteractions: every stretch is also reachable from the seam list. */}
 										<polyline
-											points={pointsOf(entry.whole)}
+											points={pointsOf(entry.points)}
 											fill="none"
 											stroke="var(--color-foreground)"
 											strokeOpacity={0.001}
@@ -277,17 +289,21 @@ export function AssembleView(props: AssembleViewProps) {
 											strokeLinecap="round"
 											pointerEvents="stroke"
 											className="cursor-pointer"
-											onPointerEnter={() => setHovered(entry.edge)}
+											onPointerEnter={() => setHovered(entry.key)}
 											onPointerLeave={() =>
-												setHovered((held) =>
-													held !== undefined && sameEdge(held, entry.edge) ? undefined : held,
-												)
+												setHovered((key) => (key === entry.key ? undefined : key))
 											}
 											onClick={(event) => {
 												event.stopPropagation()
-												choose(entry.edge)
+
+												if (entry.stretch.kind === "seam") {
+													choose(entry.edge, entry.stretch.seam.id)
+													return
+												}
+
+												sew(entry.edge)
 											}}
-											onContextMenu={(event) => edgeMenu(entry.edge, event)}
+											onContextMenu={(event) => edgeMenu(entry.edge, seamId, event)}
 										/>
 									</g>
 								)
@@ -340,6 +356,10 @@ export function AssembleView(props: AssembleViewProps) {
 			{menu === undefined ? null : (
 				<ContextMenu target={menu} onDismiss={() => setMenu(undefined)} />
 			)}
+
+			<p className="pointer-events-none absolute bottom-3 right-3 rounded border bg-background/80 px-2 py-1 text-xs text-muted-foreground">
+				{"無地＝表が上 ・ 斜線＝裏が上"}
+			</p>
 
 			{assembly.loose.length === 0 ? null : (
 				<p className="pointer-events-none absolute top-3 left-3 text-xs text-muted-foreground">

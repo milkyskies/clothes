@@ -3,6 +3,8 @@ import { boundaryOffsets, edgeGaps, type Span, sameEdge } from "./assembly"
 import { cuttingLayout } from "./cutting"
 import type { Draft, EdgeRef, Panel } from "./draft"
 import { findPanel } from "./draft"
+import { signedArea } from "./geometry/path"
+import { assemble } from "./layout"
 
 /**
  * What a difference in centimetres means at the machine.
@@ -335,6 +337,59 @@ function ringChecks(draft: Draft): CheckResult[] {
 }
 
 /**
+ * Whether a seam can be sewn with every piece showing its omote outward.
+ *
+ * A garment is an orientable surface: give each panel a face and every seam
+ * must glue boundary against boundary the opposite way round. One seam whose
+ * ends meet the wrong way forces a piece to be omote-out and ura-out at once —
+ * a Möbius twist no amount of pressing fixes, and one nobody can see by
+ * staring at flat pieces. The parity is checkable: the winding of each outline,
+ * the mirror-ness of each placement, and which ends the seam joins must
+ * multiply out to an orientation-reversing identification.
+ */
+function twistChecks(draft: Draft): CheckResult[] {
+	const flat = assemble(draft, { opened: true })
+
+	const mirrored = new Map(
+		flat.placements.map((placement) => [
+			placement.panelId,
+			Math.sign(placement.matrix.a * placement.matrix.d - placement.matrix.b * placement.matrix.c),
+		]),
+	)
+
+	const windings = new Map(
+		draft.panels.map((panel) => [panel.id, Math.sign(signedArea(panel.vertices)) || 1]),
+	)
+
+	const results: CheckResult[] = []
+
+	for (const seam of draft.seams) {
+		const detA = mirrored.get(seam.a.edge.panelId)
+		const detB = mirrored.get(seam.b.edge.panelId)
+		const windA = windings.get(seam.a.edge.panelId)
+		const windB = windings.get(seam.b.edge.panelId)
+
+		if (detA === undefined || detB === undefined) continue
+		if (windA === undefined || windB === undefined) continue
+
+		const match = seam.reversed === true ? -1 : 1
+
+		if (match * detA * windA * detB * windB === -1) continue
+
+		results.push({
+			id: `twist-${seam.id}`,
+			severity: "error",
+			title: `${seam.name}がねじれています`,
+			detail: "この向きだと表と裏が合いません。縫いの「向きを反転」で直ります。",
+			target: { seamId: seam.id },
+			fix: "assemble",
+		})
+	}
+
+	return results
+}
+
+/**
  * What the cloth itself says, which the drawing alone cannot.
  *
  * A piece wider than the bolt is not a mistake you can see by looking at the
@@ -380,6 +435,7 @@ export function checkDraft(draft: Draft): CheckResult[] {
 		...seamChecks(draft),
 		...overlapChecks(draft),
 		...detachedChecks(draft),
+		...twistChecks(draft),
 		...clothChecks(draft),
 		...ringChecks(draft),
 	].sort((left, right) => ORDER[left.severity] - ORDER[right.severity])
