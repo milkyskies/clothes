@@ -7,8 +7,9 @@ interface VertexHandlesProps {
 	screen: (pixels: number) => number
 	selection: Selection
 	onSelect: (vertexId: string) => void
+	onSelectEdge: (vertexId: string) => void
 	onMove: (vertexId: string, x: number, y: number, done: boolean) => void
-	onSetBow: (vertexId: string, bow: number, done: boolean) => void
+	onSetBow: (vertexId: string, bow: number, at: number, done: boolean) => void
 	onMenu: (vertexId: string, clientX: number, clientY: number) => void
 }
 
@@ -79,14 +80,15 @@ export function VertexHandles(props: VertexHandlesProps) {
 				const active = props.selection.vertexId === vertex.id
 				const edgeChosen = props.selection.edgeVertexId === vertex.id
 				const bow = vertex.bow ?? 0
+				const at = vertex.bowAt ?? 0.5
 
 				const spanX = next.x - vertex.x
 				const spanY = next.y - vertex.y
 				const span = Math.hypot(spanX, spanY) || 1
 				const normalX = -spanY / span
 				const normalY = spanX / span
-				const midX = (vertex.x + next.x) / 2
-				const midY = (vertex.y + next.y) / 2
+				const midX = vertex.x + spanX * at
+				const midY = vertex.y + spanY * at
 
 				return (
 					<g key={vertex.id}>
@@ -108,10 +110,12 @@ export function VertexHandles(props: VertexHandlesProps) {
 									fill={edgeChosen ? "var(--color-foreground)" : "var(--color-background)"}
 									stroke="var(--color-foreground)"
 									strokeWidth={props.screen(1.2)}
+									onSelect={() => props.onSelectEdge(vertex.id)}
 									onDrag={(x, y, done) =>
 										props.onSetBow(
 											vertex.id,
 											Number(((x - midX) * normalX + (y - midY) * normalY).toFixed(2)),
+											at + ((x - midX) * spanX + (y - midY) * spanY) / (span * span),
 											done,
 										)
 									}

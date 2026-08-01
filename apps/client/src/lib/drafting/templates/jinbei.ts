@@ -19,8 +19,9 @@ const SHOULDER = 23
 const NECK_SETBACK_ACROSS = 3.6
 const NECK_SETBACK_UP = 1.6
 
-/** How far the rounded run bows toward the corner it replaces. */
+/** How far the rounded run bows toward the corner it replaces, and how late it turns. */
 const NECK_DEPTH = 0.7
+const NECK_DEEPEST_AT = 0.72
 
 function vertices(points: readonly (readonly [string, number, number])[]): Vertex[] {
 	return points.map(([id, x, y]) => ({ id, x, y }))
@@ -56,7 +57,13 @@ const back: Panel = {
 		// 衿ぐり is a notch, not a scoop: 2cm down the centre back, straight across
 		// to the shoulder point, and up — with the inner corner rounded by 0.7cm.
 		{ id: "ushiro-eriguri-hidari", x: 0, y: 2 },
-		{ id: "ushiro-eriguri-kado", x: 9 - NECK_SETBACK_ACROSS, y: 2, bow: NECK_DEPTH },
+		{
+			id: "ushiro-eriguri-kado",
+			x: 9 - NECK_SETBACK_ACROSS,
+			y: 2,
+			bow: NECK_DEPTH,
+			bowAt: NECK_DEEPEST_AT,
+		},
 		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_SETBACK_UP },
 	],
 }

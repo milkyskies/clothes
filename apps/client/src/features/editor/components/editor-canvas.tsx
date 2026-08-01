@@ -19,6 +19,7 @@ import {
 	moveVertex,
 	roundCorner,
 	setEdgeBow,
+	setEdgeBowAt,
 	setFoldEdge,
 	sharpenCorner,
 } from "@/lib/drafting/edit"
@@ -416,6 +417,9 @@ export function EditorCanvas(props: EditorCanvasProps) {
 									screen={view.screen}
 									selection={props.editor.selection}
 									onSelect={(vertexId) => props.editor.select({ panelId: panel.id, vertexId })}
+									onSelectEdge={(vertexId) =>
+										props.editor.select({ panelId: panel.id, edgeVertexId: vertexId })
+									}
 									onMenu={vertexMenu}
 									onMove={(vertexId, x, y, done) =>
 										props.editor.apply(
@@ -429,9 +433,14 @@ export function EditorCanvas(props: EditorCanvasProps) {
 											!done,
 										)
 									}
-									onSetBow={(vertexId, bow, done) =>
+									onSetBow={(vertexId, bow, at, done) =>
 										props.editor.apply(
-											setEdgeBow(props.editor.document, panel.id, vertexId, bow),
+											setEdgeBowAt(
+												setEdgeBow(props.editor.document, panel.id, vertexId, bow),
+												panel.id,
+												vertexId,
+												at,
+											),
 											!done,
 										)
 									}

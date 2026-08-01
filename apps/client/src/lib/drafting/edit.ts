@@ -169,6 +169,31 @@ export function edgeBow(panel: Panel, vertexId: string): number {
 	return panel.vertices.find((entry) => entry.id === vertexId)?.bow ?? 0
 }
 
+/** Where along an edge its bow is deepest, from 0 to 1. */
+export function edgeBowAt(panel: Panel, vertexId: string): number {
+	return panel.vertices.find((entry) => entry.id === vertexId)?.bowAt ?? 0.5
+}
+
+export function setEdgeBowAt(
+	document: Document,
+	panelId: string,
+	vertexId: string,
+	at: number,
+): Document {
+	const panel = document.panels.find((entry) => entry.id === panelId)
+
+	if (panel === undefined) return document
+
+	const clamped = Math.min(0.95, Math.max(0.05, at))
+
+	return replacePanel(document, {
+		...panel,
+		vertices: panel.vertices.map((vertex) =>
+			vertex.id === vertexId ? { ...vertex, bowAt: clamped } : vertex,
+		),
+	})
+}
+
 export function isCurvedEdge(panel: Panel, vertexId: string): boolean {
 	return edgeBow(panel, vertexId) !== 0
 }

@@ -18,6 +18,14 @@ export interface Vertex {
 	 * that is what is stored, and the control points are worked out from it.
 	 */
 	readonly bow?: number
+	/**
+	 * Where along the edge the bow is deepest, from 0 at this vertex to 1 at the
+	 * next. Absent is the middle.
+	 *
+	 * A 衿ぐり runs flat and then turns hard, so its deepest point sits well past
+	 * halfway; a symmetric curve cannot say that.
+	 */
+	readonly bowAt?: number
 }
 
 export interface Panel {
@@ -145,11 +153,15 @@ export function panelPath(panel: Panel): Path {
 		const sideX = (-spanY / span) * bow * BOW_TO_HANDLE
 		const sideY = (spanX / span) * bow * BOW_TO_HANDLE
 
+		const at = vertex.bowAt ?? 0.5
+		const lead = (at * 2) / 3
+		const trail = ((1 - at) * 2) / 3
+
 		return curve(
 			vertex.id,
 			to,
-			point(from.x + spanX / 3 + sideX, from.y + spanY / 3 + sideY),
-			point(to.x - spanX / 3 + sideX, to.y - spanY / 3 + sideY),
+			point(from.x + spanX * lead + sideX, from.y + spanY * lead + sideY),
+			point(to.x - spanX * trail + sideX, to.y - spanY * trail + sideY),
 		)
 	})
 

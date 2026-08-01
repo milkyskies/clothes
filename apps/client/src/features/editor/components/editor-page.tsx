@@ -5,6 +5,8 @@ import { RedoIcon } from "@/features/shared/icons/redo-icon"
 import { SelectIcon } from "@/features/shared/icons/select-icon"
 import { UndoIcon } from "@/features/shared/icons/undo-icon"
 import { Button } from "@/features/shared/ui/button"
+import { Input } from "@/features/shared/ui/input"
+import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
 import { addRectanglePanel } from "@/lib/drafting/edit"
 import { jinbeiTop } from "@/lib/drafting/templates/jinbei"
@@ -16,8 +18,6 @@ const TOOLS: readonly { value: Tool; label: string; icon: typeof PenIcon }[] = [
 	{ value: "select", label: "えらぶ", icon: SelectIcon },
 	{ value: "pen", label: "ペン", icon: PenIcon },
 ]
-
-const SNAPS: readonly number[] = [0, 0.5, 1]
 
 export function EditorPage() {
 	const editor = useEditor(jinbeiTop())
@@ -91,20 +91,22 @@ export function EditorPage() {
 
 					<Separator orientation="vertical" className="h-6" />
 
-					<div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+					<Label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
 						<span>{"スナップ"}</span>
-						{SNAPS.map((value) => (
-							<Button
-								key={value}
-								variant={editor.snap === value ? "default" : "outline"}
-								size="sm"
-								className="tnum h-7 px-2 text-xs"
-								onClick={() => editor.setSnap(value)}
-							>
-								{value === 0 ? "なし" : `${value}cm`}
-							</Button>
-						))}
-					</div>
+						<Input
+							type="number"
+							min={0}
+							step={0.1}
+							value={editor.snap}
+							onChange={(event) => {
+								const parsed = Number(event.target.value)
+
+								if (Number.isFinite(parsed)) editor.setSnap(Math.max(0, parsed))
+							}}
+							className="tnum h-7 w-16 text-right text-xs"
+						/>
+						<span>{"cm"}</span>
+					</Label>
 
 					<span className="ml-auto text-sm">{editor.document.name}</span>
 				</header>

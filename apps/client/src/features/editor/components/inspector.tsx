@@ -3,7 +3,14 @@ import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
 import { edgeLength } from "@/lib/drafting/assembly"
 import { findPanel, findVertex } from "@/lib/drafting/document"
-import { edgeBow, moveVertex, setEdgeBow, updatePanel } from "@/lib/drafting/edit"
+import {
+	edgeBow,
+	edgeBowAt,
+	moveVertex,
+	setEdgeBow,
+	setEdgeBowAt,
+	updatePanel,
+} from "@/lib/drafting/edit"
 import type { Editor } from "../use-editor"
 
 interface FieldProps {
@@ -136,6 +143,16 @@ export function Inspector(props: InspectorProps) {
 										step={0.1}
 										onChange={(next) =>
 											props.editor.apply(setEdgeBow(document, panel.id, edgeVertexId, next))
+										}
+									/>
+								</Field>
+
+								<Field label="ふくらみの位置">
+									<NumberField
+										value={Number(edgeBowAt(panel, edgeVertexId).toFixed(2))}
+										step={0.05}
+										onChange={(next) =>
+											props.editor.apply(setEdgeBowAt(document, panel.id, edgeVertexId, next))
 										}
 									/>
 								</Field>

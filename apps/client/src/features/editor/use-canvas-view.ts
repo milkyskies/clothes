@@ -1,8 +1,11 @@
 import { useGesture } from "@use-gesture/react"
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-const MIN_ZOOM = 0.2
-const MAX_ZOOM = 8
+// Wide bounds are safe now that chrome is sized in screen pixels rather than
+// centimetres: at full zoom the view spans a couple of centimetres of cloth, and
+// the handles are still the size they always were.
+const MIN_ZOOM = 0.1
+const MAX_ZOOM = 80
 
 interface Size {
 	readonly width: number
