@@ -11,6 +11,10 @@ import type { Document, Panel, Seam, Vertex } from "../document"
 
 const BODY_LENGTH = 83.5
 const SHOULDER = 23
+const NECK_RADIUS = 0.7
+
+/** Control-point fraction that makes a cubic sit on a quarter circle. */
+const QUARTER_ROUND = 0.5523
 
 function vertices(points: readonly (readonly [string, number, number])[]): Vertex[] {
 	return points.map(([id, x, y]) => ({ id, x, y }))
@@ -43,8 +47,17 @@ const back: Panel = {
 		{ id: "ushiro-katasaki", x: 32, y: 0 },
 		{ id: "ushiro-suso-migi", x: 32, y: BODY_LENGTH },
 		{ id: "ushiro-suso-hidari", x: 0, y: BODY_LENGTH },
-		// 衿ぐり: 2cm down the centre back, 0.7cm deep, the two setbacks the 製図 gives.
-		{ id: "ushiro-eriguri", x: 0, y: 2, out: { x: 0.6, y: -1.3 }, nextIn: { x: -5.2, y: 0.7 } },
+		// 衿ぐり is a notch, not a scoop: 2cm down the centre back, straight across
+		// to the shoulder point, and up — with the inner corner rounded by 0.7cm.
+		{ id: "ushiro-eriguri-hidari", x: 0, y: 2 },
+		{
+			id: "ushiro-eriguri-kado",
+			x: 9 - NECK_RADIUS,
+			y: 2,
+			out: { x: NECK_RADIUS * QUARTER_ROUND, y: 0 },
+			nextIn: { x: 0, y: NECK_RADIUS * QUARTER_ROUND },
+		},
+		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_RADIUS },
 	],
 }
 

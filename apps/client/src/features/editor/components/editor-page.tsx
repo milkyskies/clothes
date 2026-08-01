@@ -1,5 +1,9 @@
 import { useHotkey } from "@tanstack/react-hotkeys"
-import { MousePointer2, PenLine, Redo2, Square, Undo2 } from "lucide-react"
+import { PenIcon } from "@/features/shared/icons/pen-icon"
+import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
+import { RedoIcon } from "@/features/shared/icons/redo-icon"
+import { SelectIcon } from "@/features/shared/icons/select-icon"
+import { UndoIcon } from "@/features/shared/icons/undo-icon"
 import { Button } from "@/features/shared/ui/button"
 import { Separator } from "@/features/shared/ui/separator"
 import { addRectanglePanel } from "@/lib/drafting/edit"
@@ -8,9 +12,9 @@ import { type Tool, useEditor } from "../use-editor"
 import { EditorCanvas } from "./editor-canvas"
 import { Inspector } from "./inspector"
 
-const TOOLS: readonly { value: Tool; label: string; icon: typeof PenLine }[] = [
-	{ value: "select", label: "えらぶ", icon: MousePointer2 },
-	{ value: "pen", label: "ペン", icon: PenLine },
+const TOOLS: readonly { value: Tool; label: string; icon: typeof PenIcon }[] = [
+	{ value: "select", label: "えらぶ", icon: SelectIcon },
+	{ value: "pen", label: "ペン", icon: PenIcon },
 ]
 
 const SNAPS: readonly number[] = [0, 0.5, 1]
@@ -56,7 +60,7 @@ export function EditorPage() {
 							onClick={addRectangle}
 							title="長方形を足す"
 						>
-							<Square className="size-4" />
+							<RectangleIcon className="size-4" />
 						</Button>
 					</div>
 
@@ -71,7 +75,7 @@ export function EditorPage() {
 							onClick={editor.undo}
 							title="元に戻す"
 						>
-							<Undo2 className="size-4" />
+							<UndoIcon className="size-4" />
 						</Button>
 						<Button
 							variant="ghost"
@@ -81,7 +85,7 @@ export function EditorPage() {
 							onClick={editor.redo}
 							title="やり直す"
 						>
-							<Redo2 className="size-4" />
+							<RedoIcon className="size-4" />
 						</Button>
 					</div>
 

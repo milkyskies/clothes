@@ -1,7 +1,15 @@
 import { type MouseEvent as ReactMouseEvent, useRef, useState } from "react"
+import { AddPointIcon } from "@/features/shared/icons/add-point-icon"
+import { CutIcon } from "@/features/shared/icons/cut-icon"
+import { DeleteIcon } from "@/features/shared/icons/delete-icon"
+import { DuplicateIcon } from "@/features/shared/icons/duplicate-icon"
+import { FitIcon } from "@/features/shared/icons/fit-icon"
+import { PenIcon } from "@/features/shared/icons/pen-icon"
+import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
 import { findPanel, findVertex, nextVertex } from "@/lib/drafting/document"
 import {
 	addPolygonPanel,
+	addRectanglePanel,
 	deletePanel,
 	deleteVertex,
 	duplicatePanel,
@@ -157,10 +165,12 @@ export function EditorCanvas(props: EditorCanvasProps) {
 			items: [
 				{
 					label: "複製する",
+					icon: DuplicateIcon,
 					onSelect: () => props.editor.apply(duplicatePanel(props.editor.document, panelId)),
 				},
 				{
 					label: "消す",
+					icon: DeleteIcon,
 					danger: true,
 					onSelect: () => {
 						props.editor.apply(deletePanel(props.editor.document, panelId))
@@ -186,6 +196,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 			items: [
 				{
 					label: "真ん中に点を足す",
+					icon: AddPointIcon,
 					onSelect: () => {
 						const from = findVertex(panel, vertexId)
 						const to = nextVertex(panel, vertexId)
@@ -205,6 +216,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 				},
 				{
 					label: isFold ? "わをやめる" : "わ（折り山）にする",
+					icon: CutIcon,
 					onSelect: () =>
 						props.editor.apply(
 							setFoldEdge(props.editor.document, panelId, isFold ? undefined : vertexId),
@@ -214,11 +226,13 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					? [
 							{
 								label: "まっすぐにする",
+								icon: CutIcon,
 								onSelect: () =>
 									props.editor.apply(setEdgeBow(props.editor.document, panelId, vertexId, 0)),
 							},
 							{
 								label: "角に戻す",
+								icon: CutIcon,
 								onSelect: () => {
 									props.editor.apply(sharpenCorner(props.editor.document, panelId, vertexId))
 									props.editor.select({ panelId })
@@ -228,6 +242,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					: [
 							{
 								label: "少しふくらませる",
+								icon: CutIcon,
 								onSelect: () =>
 									props.editor.apply(setEdgeBow(props.editor.document, panelId, vertexId, 1)),
 							},
@@ -248,6 +263,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 			items: [
 				{
 					label: "角を丸める（2cm）",
+					icon: CutIcon,
 					onSelect: () => {
 						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 2, 2))
 						props.editor.select({ panelId })
@@ -255,12 +271,44 @@ export function EditorCanvas(props: EditorCanvasProps) {
 				},
 				{
 					label: "点を消す",
+					icon: DeleteIcon,
 					danger: true,
 					onSelect: () => {
 						props.editor.apply(deleteVertex(props.editor.document, panelId, vertexId))
 						props.editor.select({ panelId })
 					},
 				},
+			],
+		})
+	}
+
+	function canvasMenu(event: ReactMouseEvent<SVGSVGElement>) {
+		const spot = toDocumentPoint(event)
+
+		setMenu({
+			clientX: event.clientX,
+			clientY: event.clientY,
+			title: `${spot.x} , ${spot.y} cm`,
+			items: [
+				{
+					label: "ここに長方形を足す",
+					icon: RectangleIcon,
+					onSelect: () => {
+						const created = addRectanglePanel(props.editor.document, spot.x, spot.y, 30, 70)
+
+						props.editor.apply(created.document)
+						props.editor.select({ panelId: created.panelId })
+					},
+				},
+				{
+					label: "ペンで描く",
+					icon: PenIcon,
+					onSelect: () => {
+						props.editor.setTool("pen")
+						setDraft([])
+					},
+				},
+				{ label: "全体を表示", icon: FitIcon, onSelect: () => view.fit() },
 			],
 		})
 	}
@@ -329,6 +377,12 @@ export function EditorCanvas(props: EditorCanvasProps) {
 				aria-label="製図"
 				className={`h-full w-full ${props.editor.tool === "pen" ? "cursor-crosshair" : "cursor-grab"}`}
 				onClick={handleCanvasClick}
+				onContextMenu={(event) => {
+					if (!hitEmptyCanvas(event)) return
+
+					event.preventDefault()
+					canvasMenu(event)
+				}}
 			>
 				<Grid unit={UNIT} extent={GRID_EXTENT_CM} ticks={ticks} tickSize={tickSize} />
 

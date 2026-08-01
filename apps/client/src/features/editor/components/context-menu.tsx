@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react"
+import { type ComponentType, useEffect, useRef } from "react"
 
 export interface MenuItem {
 	readonly label: string
+	readonly icon: ComponentType<{ className?: string }>
 	readonly onSelect: () => void
 	readonly danger?: boolean
 }
@@ -62,10 +63,11 @@ export function ContextMenu(props: ContextMenuProps) {
 						item.onSelect()
 						props.onDismiss()
 					}}
-					className={`block w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
+					className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent ${
 						item.danger === true ? "text-destructive" : ""
 					}`}
 				>
+					<item.icon className="size-4 shrink-0 opacity-70" />
 					{item.label}
 				</button>
 			))}
