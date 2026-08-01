@@ -77,30 +77,54 @@ export function EditorPage() {
 			</header>
 
 			<div className="flex shrink-0 items-center gap-3 border-b px-3 py-1.5">
-				<div className="flex items-center gap-0.5">
-					{TOOLS.map((entry) => (
+				<div className="flex items-center gap-0.5 rounded-md border p-0.5">
+					{MODES.map((entry) => (
 						<Button
 							key={entry.value}
-							variant={editor.tool === entry.value ? "default" : "ghost"}
-							size="icon"
-							className="size-8"
-							onClick={() => editor.setTool(entry.value)}
-							title={`${entry.label}（${entry.shortcut}）`}
+							variant={editor.mode === entry.value ? "default" : "ghost"}
+							size="sm"
+							className="h-7 px-2.5 text-xs"
+							onClick={() => editor.setMode(entry.value)}
 						>
-							<entry.icon className="size-4" />
+							{entry.label}
 						</Button>
 					))}
-
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						onClick={addRectangle}
-						title="長方形を足す"
-					>
-						<RectangleIcon className="size-4" />
-					</Button>
 				</div>
+
+				{editor.mode === "draw" ? (
+					<>
+						<Separator orientation="vertical" className="h-6" />
+
+						<div className="flex items-center gap-0.5">
+							{TOOLS.map((entry) => (
+								<Button
+									key={entry.value}
+									variant={editor.tool === entry.value ? "default" : "ghost"}
+									size="icon"
+									className="size-8"
+									onClick={() => editor.setTool(entry.value)}
+									title={`${entry.label}（${entry.shortcut}）`}
+								>
+									<entry.icon className="size-4" />
+								</Button>
+							))}
+
+							<Button
+								variant="ghost"
+								size="icon"
+								className="size-8"
+								onClick={addRectangle}
+								title="長方形を足す"
+							>
+								<RectangleIcon className="size-4" />
+							</Button>
+						</div>
+					</>
+				) : (
+					<span className="text-xs text-muted-foreground">
+						{"辺を2つ続けて押すと縫い合わせます"}
+					</span>
+				)}
 
 				<Separator orientation="vertical" className="h-6" />
 
