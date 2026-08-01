@@ -17,6 +17,7 @@ interface PanelShapeProps {
 	onSelectPanel: () => void
 	onSelectEdge: (vertexId: string) => void
 	onMovePanel: (x: number, y: number, done: boolean) => void
+	onMenu: (kind: "panel" | "edge", id: string, clientX: number, clientY: number) => void
 }
 
 /**
@@ -271,6 +272,12 @@ export function PanelShape(props: PanelShapeProps) {
 							onPointerDown={(event) => {
 								event.stopPropagation()
 								props.onSelectEdge(edge.vertexId)
+							}}
+							onContextMenu={(event) => {
+								event.preventDefault()
+								event.stopPropagation()
+								props.onSelectEdge(edge.vertexId)
+								props.onMenu("edge", edge.vertexId, event.clientX, event.clientY)
 							}}
 						/>
 					))

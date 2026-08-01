@@ -1,8 +1,24 @@
 import { type MouseEvent as ReactMouseEvent, useRef, useState } from "react"
-import { addPolygonPanel, movePanel, moveVertex, setHandle } from "@/lib/drafting/edit"
+import { findPanel, findVertex, nextVertex } from "@/lib/drafting/document"
+import {
+	addPolygonPanel,
+	deletePanel,
+	deleteVertex,
+	duplicatePanel,
+	insertVertex,
+	isCurvedEdge,
+	movePanel,
+	moveVertex,
+	roundCorner,
+	setEdgeBow,
+	setFoldEdge,
+	setHandle,
+	sharpenCorner,
+} from "@/lib/drafting/edit"
 import { useCanvasView } from "../use-canvas-view"
 import type { Editor } from "../use-editor"
 import { snapValue } from "../use-editor"
+import { ContextMenu, type MenuTarget } from "./context-menu"
 import { PanelShape } from "./panel-shape"
 import { VertexHandles } from "./vertex-handles"
 
@@ -113,6 +129,7 @@ interface EditorCanvasProps {
 export function EditorCanvas(props: EditorCanvasProps) {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [draft, setDraft] = useState<{ x: number; y: number }[]>([])
+	const [menu, setMenu] = useState<MenuTarget | undefined>(undefined)
 
 	const view = useCanvasView(containerRef, {
 		width: FRAME_CM,
@@ -127,6 +144,126 @@ export function EditorCanvas(props: EditorCanvasProps) {
 	// Axis figures are annotation, not drawing, so they hold their size on screen
 	// rather than growing with the cloth as the view zooms in.
 	const tickSize = (FRAME_CM / view.zoom) * 0.016
+
+	function panelMenu(panelId: string, clientX: number, clientY: number) {
+		const panel = findPanel(props.editor.document, panelId)
+
+		if (panel === undefined) return
+
+		setMenu({
+			clientX,
+			clientY,
+			title: panel.name,
+			items: [
+				{
+					label: "複製する",
+					onSelect: () => props.editor.apply(duplicatePanel(props.editor.document, panelId)),
+				},
+				{
+					label: "消す",
+					danger: true,
+					onSelect: () => {
+						props.editor.apply(deletePanel(props.editor.document, panelId))
+						props.editor.select({})
+					},
+				},
+			],
+		})
+	}
+
+	function edgeMenu(vertexId: string, clientX: number, clientY: number) {
+		const panelId = props.editor.selection.panelId
+		const panel = panelId === undefined ? undefined : findPanel(props.editor.document, panelId)
+
+		if (panel === undefined || panelId === undefined) return
+
+		const isFold = panel.foldEdge === vertexId
+
+		setMenu({
+			clientX,
+			clientY,
+			title: "辺",
+			items: [
+				{
+					label: "真ん中に点を足す",
+					onSelect: () => {
+						const from = findVertex(panel, vertexId)
+						const to = nextVertex(panel, vertexId)
+
+						if (from === undefined || to === undefined) return
+
+						props.editor.apply(
+							insertVertex(
+								props.editor.document,
+								panelId,
+								vertexId,
+								(from.x + to.x) / 2,
+								(from.y + to.y) / 2,
+							),
+						)
+					},
+				},
+				{
+					label: isFold ? "わをやめる" : "わ（折り山）にする",
+					onSelect: () =>
+						props.editor.apply(
+							setFoldEdge(props.editor.document, panelId, isFold ? undefined : vertexId),
+						),
+				},
+				...(isCurvedEdge(panel, vertexId)
+					? [
+							{
+								label: "まっすぐにする",
+								onSelect: () =>
+									props.editor.apply(setEdgeBow(props.editor.document, panelId, vertexId, 0)),
+							},
+							{
+								label: "角に戻す",
+								onSelect: () => {
+									props.editor.apply(sharpenCorner(props.editor.document, panelId, vertexId))
+									props.editor.select({ panelId })
+								},
+							},
+						]
+					: [
+							{
+								label: "少しふくらませる",
+								onSelect: () =>
+									props.editor.apply(setEdgeBow(props.editor.document, panelId, vertexId, 1)),
+							},
+						]),
+			],
+		})
+	}
+
+	function vertexMenu(vertexId: string, clientX: number, clientY: number) {
+		const panelId = props.editor.selection.panelId
+
+		if (panelId === undefined) return
+
+		setMenu({
+			clientX,
+			clientY,
+			title: "点",
+			items: [
+				{
+					label: "角を丸める（2cm）",
+					onSelect: () => {
+						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 2, 2))
+						props.editor.select({ panelId })
+					},
+				},
+				{
+					label: "点を消す",
+					danger: true,
+					onSelect: () => {
+						props.editor.apply(deleteVertex(props.editor.document, panelId, vertexId))
+						props.editor.select({ panelId })
+					},
+				},
+			],
+		})
+	}
 
 	function toDocumentPoint(event: ReactMouseEvent<SVGSVGElement>): { x: number; y: number } {
 		const svg = event.currentTarget
@@ -208,6 +345,9 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						onSelectEdge={(vertexId) =>
 							props.editor.select({ panelId: panel.id, edgeVertexId: vertexId })
 						}
+						onMenu={(kind, id, clientX, clientY) =>
+							kind === "panel" ? panelMenu(id, clientX, clientY) : edgeMenu(id, clientX, clientY)
+						}
 						onMovePanel={(x, y, done) =>
 							props.editor.apply(
 								movePanel(
@@ -232,6 +372,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 									unit={UNIT}
 									selection={props.editor.selection}
 									onSelect={(vertexId) => props.editor.select({ panelId: panel.id, vertexId })}
+									onMenu={vertexMenu}
 									onMove={(vertexId, x, y, done) =>
 										props.editor.apply(
 											moveVertex(
@@ -277,6 +418,10 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					/>
 				))}
 			</svg>
+
+			{menu === undefined ? null : (
+				<ContextMenu target={menu} onDismiss={() => setMenu(undefined)} />
+			)}
 		</div>
 	)
 }

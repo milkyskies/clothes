@@ -115,7 +115,7 @@ export function isCurvedEdge(panel: Panel, vertexId: string): boolean {
 }
 
 /** Drops both handles on an edge, turning it back into a straight run. */
-export function straightenEdge(document: Document, panelId: string, vertexId: string): Document {
+function straightenEdge(document: Document, panelId: string, vertexId: string): Document {
 	const panel = document.panels.find((entry) => entry.id === panelId)
 
 	if (panel === undefined) return document

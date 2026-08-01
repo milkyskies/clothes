@@ -1,25 +1,9 @@
-import { Copy, Trash2 } from "lucide-react"
-import { useState } from "react"
-import { Button } from "@/features/shared/ui/button"
 import { Input } from "@/features/shared/ui/input"
 import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
-import { edgeGaps, edgeLength } from "@/lib/drafting/assembly"
-import { findPanel, findVertex, nextVertex } from "@/lib/drafting/document"
-import {
-	deletePanel,
-	deleteVertex,
-	duplicatePanel,
-	edgeBow,
-	insertVertex,
-	isCurvedEdge,
-	moveVertex,
-	roundCorner,
-	setEdgeBow,
-	setFoldEdge,
-	sharpenCorner,
-	updatePanel,
-} from "@/lib/drafting/edit"
+import { edgeLength } from "@/lib/drafting/assembly"
+import { findPanel, findVertex } from "@/lib/drafting/document"
+import { edgeBow, moveVertex, setEdgeBow, updatePanel } from "@/lib/drafting/edit"
 import type { Editor } from "../use-editor"
 
 interface FieldProps {
@@ -62,10 +46,12 @@ interface InspectorProps {
 	editor: Editor
 }
 
+/**
+ * Values only. Every verb — round, sharpen, split, duplicate, delete, mark as
+ * わ — lives on the object's own right-click menu, so acting on something does
+ * not mean crossing the window to find a button.
+ */
 export function Inspector(props: InspectorProps) {
-	const [roundBefore, setRoundBefore] = useState(2)
-	const [roundAfter, setRoundAfter] = useState(2)
-
 	const { document, selection } = props.editor
 	const panel = selection.panelId === undefined ? undefined : findPanel(document, selection.panelId)
 
@@ -110,225 +96,92 @@ export function Inspector(props: InspectorProps) {
 					<Separator />
 
 					<section className="space-y-3 p-4">
-						<div className="flex items-center justify-between">
-							<h2 className="text-xs font-medium text-muted-foreground">{"選んだパーツ"}</h2>
+						<h2 className="text-xs font-medium text-muted-foreground">
+							{vertex !== undefined ? "点" : edgeVertexId !== undefined ? "辺" : "パーツ"}
+						</h2>
 
-							<div className="flex gap-0.5">
-								<Button
-									variant="ghost"
-									size="icon"
-									className="size-7"
-									onClick={() => props.editor.apply(duplicatePanel(document, panel.id))}
-									title="複製する"
-								>
-									<Copy className="size-3.5" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="size-7"
-									onClick={() => {
-										props.editor.apply(deletePanel(document, panel.id))
-										props.editor.select({})
-									}}
-									title="消す"
-								>
-									<Trash2 className="size-3.5" />
-								</Button>
-							</div>
-						</div>
+						{vertex !== undefined ? (
+							<>
+								<Field label="よこ">
+									<NumberField
+										value={vertex.x}
+										onChange={(next) =>
+											props.editor.apply(moveVertex(document, panel.id, vertex.id, next, vertex.y))
+										}
+									/>
+								</Field>
 
-						<Field label="名前">
-							<Input
-								value={panel.name}
-								onChange={(event) =>
-									props.editor.apply(updatePanel(document, panel.id, { name: event.target.value }))
-								}
-								className="h-7 w-32 text-sm"
-							/>
-						</Field>
+								<Field label="たて">
+									<NumberField
+										value={vertex.y}
+										onChange={(next) =>
+											props.editor.apply(moveVertex(document, panel.id, vertex.id, vertex.x, next))
+										}
+									/>
+								</Field>
+							</>
+						) : null}
 
-						<Field label="枚数">
-							<NumberField
-								value={panel.quantity}
-								step={1}
-								onChange={(next) =>
-									props.editor.apply(
-										updatePanel(document, panel.id, { quantity: Math.max(1, Math.round(next)) }),
-									)
-								}
-							/>
-						</Field>
+						{vertex === undefined && edgeVertexId !== undefined ? (
+							<>
+								<Field label="長さ">
+									<span className="tnum text-sm">
+										{`${edgeLength(document, { panelId: panel.id, vertexId: edgeVertexId }).toFixed(1)} cm`}
+									</span>
+								</Field>
+
+								<Field label="ふくらみ">
+									<NumberField
+										value={edgeBow(panel, edgeVertexId)}
+										step={0.1}
+										onChange={(next) =>
+											props.editor.apply(setEdgeBow(document, panel.id, edgeVertexId, next))
+										}
+									/>
+								</Field>
+
+								{panel.foldEdge === edgeVertexId ? (
+									<p className="text-xs text-fold">{"この辺は わ（折り山）です。"}</p>
+								) : null}
+							</>
+						) : null}
+
+						{vertex === undefined && edgeVertexId === undefined ? (
+							<>
+								<Field label="名前">
+									<Input
+										value={panel.name}
+										onChange={(event) =>
+											props.editor.apply(
+												updatePanel(document, panel.id, { name: event.target.value }),
+											)
+										}
+										className="h-7 w-32 text-sm"
+									/>
+								</Field>
+
+								<Field label="枚数">
+									<NumberField
+										value={panel.quantity}
+										step={1}
+										onChange={(next) =>
+											props.editor.apply(
+												updatePanel(document, panel.id, {
+													quantity: Math.max(1, Math.round(next)),
+												}),
+											)
+										}
+									/>
+								</Field>
+							</>
+						) : null}
+
+						<p className="pt-1 text-xs text-muted-foreground">
+							{"右クリックでできることが出ます。"}
+						</p>
 					</section>
 				</>
 			)}
-
-			{panel !== undefined && vertex !== undefined ? (
-				<>
-					<Separator />
-
-					<section className="space-y-3 p-4">
-						<div className="flex items-center justify-between">
-							<h2 className="text-xs font-medium text-muted-foreground">{"点"}</h2>
-
-							<Button
-								variant="ghost"
-								size="icon"
-								className="size-7"
-								onClick={() => {
-									props.editor.apply(deleteVertex(document, panel.id, vertex.id))
-									props.editor.select({ panelId: panel.id })
-								}}
-								title="点を消す"
-							>
-								<Trash2 className="size-3.5" />
-							</Button>
-						</div>
-
-						<Field label="よこ">
-							<NumberField
-								value={vertex.x}
-								onChange={(next) =>
-									props.editor.apply(moveVertex(document, panel.id, vertex.id, next, vertex.y))
-								}
-							/>
-						</Field>
-
-						<Field label="たて">
-							<NumberField
-								value={vertex.y}
-								onChange={(next) =>
-									props.editor.apply(moveVertex(document, panel.id, vertex.id, vertex.x, next))
-								}
-							/>
-						</Field>
-
-						<Separator />
-
-						<p className="text-xs text-muted-foreground">
-							{
-								"この点の角を丸めます。手前の辺と先の辺をそれぞれ何cm戻すと決めると、その2点をつなぐカーブになります。"
-							}
-						</p>
-
-						<Field label="手前から">
-							<NumberField value={roundBefore} onChange={setRoundBefore} />
-						</Field>
-
-						<Field label="先から">
-							<NumberField value={roundAfter} onChange={setRoundAfter} />
-						</Field>
-
-						<Button
-							variant="outline"
-							size="sm"
-							className="w-full text-xs"
-							onClick={() => {
-								props.editor.apply(
-									roundCorner(document, panel.id, vertex.id, roundBefore, roundAfter),
-								)
-								props.editor.select({ panelId: panel.id })
-							}}
-						>
-							{"この角を丸める"}
-						</Button>
-					</section>
-				</>
-			) : null}
-
-			{panel !== undefined && edgeVertexId !== undefined ? (
-				<>
-					<Separator />
-
-					<section className="space-y-3 p-4">
-						<h2 className="text-xs font-medium text-muted-foreground">{"辺"}</h2>
-
-						<Field label="長さ">
-							<span className="tnum text-sm">
-								{`${edgeLength(document, { panelId: panel.id, vertexId: edgeVertexId }).toFixed(1)} cm`}
-							</span>
-						</Field>
-
-						<Field label="ふくらみ">
-							<NumberField
-								value={edgeBow(panel, edgeVertexId)}
-								step={0.1}
-								onChange={(next) =>
-									props.editor.apply(setEdgeBow(document, panel.id, edgeVertexId, next))
-								}
-							/>
-						</Field>
-
-						<p className="text-xs text-muted-foreground">
-							{"0でまっすぐ。数字を入れると、その深さだけ辺がふくらみます。"}
-						</p>
-
-						{isCurvedEdge(panel, edgeVertexId) ? (
-							<Button
-								variant="outline"
-								size="sm"
-								className="w-full text-xs"
-								onClick={() => {
-									props.editor.apply(sharpenCorner(document, panel.id, edgeVertexId))
-									props.editor.select({ panelId: panel.id })
-								}}
-							>
-								{"角に戻す"}
-							</Button>
-						) : null}
-
-						<Field label="わ（折り山）">
-							<input
-								type="checkbox"
-								checked={panel.foldEdge === edgeVertexId}
-								onChange={(event) =>
-									props.editor.apply(
-										setFoldEdge(
-											document,
-											panel.id,
-											event.target.checked ? edgeVertexId : undefined,
-										),
-									)
-								}
-								className="size-4 accent-foreground"
-							/>
-						</Field>
-
-						<Button
-							variant="outline"
-							size="sm"
-							className="w-full text-xs"
-							onClick={() => {
-								const from = findVertex(panel, edgeVertexId)
-								const to = nextVertex(panel, edgeVertexId)
-
-								if (from === undefined || to === undefined) return
-
-								props.editor.apply(
-									insertVertex(
-										document,
-										panel.id,
-										edgeVertexId,
-										(from.x + to.x) / 2,
-										(from.y + to.y) / 2,
-									),
-								)
-							}}
-						>
-							{"真ん中に点を足す"}
-						</Button>
-
-						<div className="space-y-1 text-xs text-muted-foreground">
-							<p>{"縫っていないところ"}</p>
-							{edgeGaps(document, { panelId: panel.id, vertexId: edgeVertexId }).map((gap) => (
-								<p key={`${gap.from}-${gap.to}`} className="tnum">
-									{`${gap.from.toFixed(1)} 〜 ${gap.to.toFixed(1)} cm`}
-								</p>
-							))}
-						</div>
-					</section>
-				</>
-			) : null}
 		</div>
 	)
 }

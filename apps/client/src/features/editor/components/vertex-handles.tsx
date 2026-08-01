@@ -15,6 +15,7 @@ interface VertexHandlesProps {
 		y: number,
 		done: boolean,
 	) => void
+	onMenu: (vertexId: string, clientX: number, clientY: number) => void
 }
 
 interface DraggableProps {
@@ -27,6 +28,7 @@ interface DraggableProps {
 	square?: boolean
 	onDrag: (x: number, y: number, done: boolean) => void
 	onSelect?: () => void
+	onMenu?: (clientX: number, clientY: number) => void
 }
 
 function Draggable(props: DraggableProps) {
@@ -41,6 +43,14 @@ function Draggable(props: DraggableProps) {
 		onPointerDown: (event: React.PointerEvent<SVGElement>) => {
 			props.onSelect?.()
 			drag.onPointerDown(event)
+		},
+		onContextMenu: (event: React.MouseEvent<SVGElement>) => {
+			if (props.onMenu === undefined) return
+
+			event.preventDefault()
+			event.stopPropagation()
+			props.onSelect?.()
+			props.onMenu(event.clientX, event.clientY)
 		},
 	}
 
@@ -125,6 +135,7 @@ export function VertexHandles(props: VertexHandlesProps) {
 							stroke="var(--color-foreground)"
 							strokeWidth={props.unit * 0.16}
 							onSelect={() => props.onSelect(vertex.id)}
+							onMenu={(clientX, clientY) => props.onMenu(vertex.id, clientX, clientY)}
 							onDrag={(x, y, done) => props.onMove(vertex.id, x, y, done)}
 						/>
 					</g>
