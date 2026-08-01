@@ -209,21 +209,46 @@ Described as concepts, not code.
 
 | Object | Contains | Owned by |
 |---|---|---|
-| **型 — garment definition** | Parts, curves, controls, build steps | The registry. Shared, versioned |
+| **型 — template** | Panels, curves, controls, build steps. Has a parent | The registry. Shared, versioned, forkable |
 | **仕立て — design** | 採寸 plus 意匠 choices, against one 型 | You. Shareable by link |
 | **生地 — fabric** | Width, fibre, shrinkage, price, remaining stock | You. Reusable across designs |
 
 A design references a fabric rather than containing one. One design renders against any fabric on your shelf; one fabric supplies any number of designs. Neither is nested in the other.
 
-## A garment definition is data
+## A template is not a category of clothing
 
-The app is a renderer. It ships no knowledge of 掛襟シャツ specifically. A garment definition declares its parts, its measurements, its controls, and its build steps — and the same screens render 浴衣, もんぺ, or 足袋 from a different file.
+It is a parametric draft with a parent. 掛襟シャツ is not a kind of garment — it is a **fork of 甚平** whose panel set and controls were changed. `docs/brief.md` Part 1 is exactly that fork, written by hand: delete the 衽, close the 身八つ口, add a gusset, swap the closure.
 
-This is the constraint that makes "support everything" reachable rather than a rewrite at garment #3.
+Templates form a tree, not a taxonomy. 浴衣 and もんぺ are famous templates; yours is one nobody has heard of. Structurally there is no difference.
 
-## Parts come from a shared vocabulary
+### What a template is *for*: bounding the control surface
 
-Every 和服 garment is assembled from the same named parts. A definition picks the ones it needs.
+Without templates, the 意匠 panel would have to offer every knob any garment could ever have — 繰り越し, おはしょり, rise, crotch curve — mostly greyed out. The template says "these five panels, these twelve knobs."
+
+That is its whole job. It is a scoping mechanism, not a classification.
+
+## Two levels of customization
+
+Forking is the escalator between them.
+
+| Level | What you can do | Result |
+|---|---|---|
+| **Use** | Turn the declared knobs | Always valid. Cannot break |
+| **Fork** | Add or remove panels, move a curve, attach stitching anywhere, declare new knobs | A new template, with a parent |
+
+The template author chooses which changes are knobs and which require a fork. 千鳥かがり can be either: exposed as `かがり: on/off, thread colour` when the author knew it should be adjustable, or attached to any edge of any panel by someone who forked. Either way 縫い方 grows a step and 材料 grows a レース糸 line, derived.
+
+The line between the levels is structure versus value. "剣先 at 18 cm" is a value. "The 衽 panel does not exist" is structure — the panel either gets cut or it does not, and both the 裁ち方図 and the 縫い方 change shape.
+
+### Editing stays parametric
+
+Forking never means dragging points to pixel positions. You set a point relative to a measurement or to another point — "8 cm along the shoulder from CF" — so constraints survive the edit.
+
+This is the discipline that keeps the tool from degenerating into CAD. The moment arbitrary positions are allowed, the app can no longer tell you the sleeve does not match the armhole, and that guarantee is the entire product.
+
+## Panels come from a shared vocabulary
+
+Every 和服 garment is assembled from the same named parts. A template picks the ones it needs.
 
 | Part | Appears in |
 |---|---|
@@ -267,7 +292,7 @@ Every 意匠 control is one of: length, width, toggle, enum, or colour. The UI r
 
 ## 縫い方 is generated
 
-Steps come from the definition, filtered by the choices. Turn 身八つ口 on and its steps appear. Change the hem finish and that step's text and numbers change with it.
+Steps come from the template, filtered by the choices. Turn 身八つ口 on and its steps appear. Change the hem finish and that step's text and numbers change with it.
 
 Headings are verb-final, the way the books write them: 後中心を縫う, 襟を縫う, 脇を縫う, すそを縫う.
 
@@ -331,9 +356,9 @@ Revisit only if 袴 or fitted adaptations enter scope, where drape genuinely car
 
 # PART 7 — Community
 
-"Support everything" is not reachable by one person hand-authoring definitions. 浴衣, 袴, and 足袋 each need someone who has actually made one.
+"Support everything" is not reachable by one person hand-authoring templates. 浴衣, 袴, and 足袋 each need someone who has actually made one.
 
-So garment definitions are contributable data. Fork an existing one, adjust it, publish it. Definitions carry provenance — what source they were drafted from, who verified them, whether anyone has actually sewn the result.
+So templates are contributable data. Fork an existing one, adjust it, publish it. Templates carry provenance — what source they were drafted from, who verified them, whether anyone has actually sewn the result.
 
 The registry is the long-term asset. `docs/brief.md` Part 7 notes that the reasoning about which features carry thermal load versus cultural signal does not appear in published form. A registry of parametric, annotated, verified 和服 drafts would be the same kind of thing, and larger.
 
@@ -354,5 +379,5 @@ The registry is the long-term asset. `docs/brief.md` Part 7 notes that the reaso
 - **Naming.** The app has none.
 - **Back-solving body from garment.** Measuring a shirt you own is the most useful input path and the least well-defined — the inverse of ease is not unique.
 - **Curve offsetting.** Seam allowance on a curve needs flattening, offsetting, and resolving inside-corner self-intersections. The one piece of real geometry work in the project.
-- **Definition format stability.** Contributed definitions outlive the schema. Versioning has to exist from the first published one.
-- **反物 vs 広幅 as a first-class split.** They produce different layouts, different seam counts (a centre-back seam appears on narrow cloth), and different 繰り越し handling. Possibly a property of the definition rather than of the fabric.
+- **Template format stability.** Contributed templates outlive the schema. Versioning has to exist from the first published one.
+- **反物 vs 広幅 as a first-class split.** They produce different layouts, different seam counts (a centre-back seam appears on narrow cloth), and different 繰り越し handling. Possibly a property of the template rather than of the fabric.
