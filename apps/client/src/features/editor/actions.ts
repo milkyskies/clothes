@@ -2,8 +2,7 @@ import { AddPointIcon } from "@/features/shared/icons/add-point-icon"
 import { CutIcon } from "@/features/shared/icons/cut-icon"
 import { DeleteIcon } from "@/features/shared/icons/delete-icon"
 import { DuplicateIcon } from "@/features/shared/icons/duplicate-icon"
-import { flipSeam, removeSeam, setSeamLie } from "@/lib/drafting/assemble"
-import { sameEdge } from "@/lib/drafting/assembly"
+import { flipSeam, removeSeam, seamsOnEdge, setSeamLie } from "@/lib/drafting/assemble"
 import { findPanel, findVertex, nextVertex } from "@/lib/drafting/draft"
 import {
 	deletePanel,
@@ -35,7 +34,7 @@ export interface Action {
 export function panelActions(editor: Editor, panelId: string): Action[] {
 	return [
 		{
-			label: "複製する",
+			label: "複製",
 			icon: DuplicateIcon,
 			run: () => editor.apply(duplicatePanel(editor.draft, panelId)),
 		},
@@ -54,18 +53,10 @@ export function panelActions(editor: Editor, panelId: string): Action[] {
 export function vertexActions(editor: Editor, panelId: string, vertexId: string): Action[] {
 	return [
 		{
-			label: "角を丸める",
+			label: "丸める",
 			icon: CutIcon,
 			run: () => {
 				editor.apply(roundCorner(editor.draft, panelId, vertexId, 0.7))
-				editor.select({ panelId })
-			},
-		},
-		{
-			label: "大きく丸める",
-			icon: CutIcon,
-			run: () => {
-				editor.apply(roundCorner(editor.draft, panelId, vertexId, 2))
 				editor.select({ panelId })
 			},
 		},
@@ -75,6 +66,14 @@ export function vertexActions(editor: Editor, panelId: string, vertexId: string)
 			danger: true,
 			run: () => {
 				editor.apply(deleteVertex(editor.draft, panelId, vertexId))
+				editor.select({ panelId })
+			},
+		},
+		{
+			label: "大きく丸める",
+			icon: CutIcon,
+			run: () => {
+				editor.apply(roundCorner(editor.draft, panelId, vertexId, 2))
 				editor.select({ panelId })
 			},
 		},
@@ -115,7 +114,7 @@ export function edgeActions(editor: Editor, panelId: string, vertexId: string): 
 	return [
 		...shape,
 		{
-			label: "真ん中に点を足す",
+			label: "点を足す",
 			icon: AddPointIcon,
 			run: () => {
 				const from = findVertex(panel, vertexId)
@@ -129,7 +128,7 @@ export function edgeActions(editor: Editor, panelId: string, vertexId: string): 
 			},
 		},
 		{
-			label: onFold ? "わをやめる" : "わ（折り山）にする",
+			label: onFold ? "わをやめる" : "わにする",
 			icon: CutIcon,
 			run: () => editor.apply(setFoldEdge(editor.draft, panelId, onFold ? undefined : vertexId)),
 		},
@@ -181,33 +180,25 @@ export function selectionActions(editor: Editor): { title: string; actions: Acti
 		}
 
 		const edge = { panelId: selection.panelId, vertexId: selection.edgeVertexId }
-		const held = draft.seams.filter(
-			(seam) => sameEdge(seam.a.edge, edge) || sameEdge(seam.b.edge, edge),
-		)
-
+		const held = seamsOnEdge(draft, edge)
 		const name = findPanel(draft, selection.panelId)?.name ?? "辺"
 
-		if (held.length === 0) {
+		const first = held[0]
+
+		if (first === undefined) {
 			return {
 				title: `${name} の辺`,
-				actions: [
-					{
-						label: "この辺から縫う",
-						icon: CutIcon,
-						run: () => editor.setPending(edge),
-					},
-				],
+				actions: [{ label: "ここから縫う", icon: CutIcon, run: () => editor.setPending(edge) }],
 			}
 		}
 
+		// The verbs act on one seam, never on every seam this edge carries: a
+		// collar edge holds four of them, and three buttons each is a wall.
+		const more = held.length === 1 ? "" : `・ほか${held.length - 1}本`
+
 		return {
-			title: `${name} の辺`,
-			actions: held.flatMap((seam) =>
-				seamActions(editor, seam.id).map((action) => ({
-					...action,
-					label: `${seam.name} を${action.label}`,
-				})),
-			),
+			title: `${first.name}${more}`,
+			actions: seamActions(editor, first.id),
 		}
 	}
 

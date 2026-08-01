@@ -58,14 +58,17 @@ interface HintBarProps {
 export function HintBar(props: HintBarProps) {
 	const { title, actions } = selectionActions(props.editor)
 
+	// The bar carries what you reach for; the right-click menu carries the rest.
+	const shown = actions.slice(0, 3)
+
 	return (
-		<div className="flex shrink-0 items-center gap-3 border-b bg-muted/40 px-3 py-1">
+		<div className="flex h-8 shrink-0 items-center gap-3 overflow-hidden border-b bg-muted/40 px-3">
 			<span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-				{title === "" ? hintFor(props.editor) : `${title} — ${hintFor(props.editor)}`}
+				{title === "" ? hintFor(props.editor) : title}
 			</span>
 
 			<div className="flex shrink-0 items-center gap-1">
-				{actions.map((action) => (
+				{shown.map((action) => (
 					<Button
 						key={action.label}
 						variant="outline"

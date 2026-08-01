@@ -1,8 +1,6 @@
 import { type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from "react"
-import { CutIcon } from "@/features/shared/icons/cut-icon"
-import { DeleteIcon } from "@/features/shared/icons/delete-icon"
-import { addSeam, flipSeam, removeSeam, setSeamLie } from "@/lib/drafting/assemble"
-import { edgeLength, sameEdge, seamRunsOn } from "@/lib/drafting/assembly"
+import { addSeam, seamsOnEdge } from "@/lib/drafting/assemble"
+import { edgeLength, sameEdge } from "@/lib/drafting/assembly"
 import { type EdgeRef, findPanel, panelBounds, panelPath } from "@/lib/drafting/draft"
 import type { Point } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
@@ -79,7 +77,13 @@ export function AssembleView(props: AssembleViewProps) {
 	}
 
 	function choose(edge: EdgeRef) {
-		props.editor.select({ panelId: edge.panelId, edgeVertexId: edge.vertexId })
+		// Picking an edge picks the seam on it too, so the verbs above the canvas
+		// have something named to act on instead of a bare edge.
+		props.editor.select({
+			panelId: edge.panelId,
+			edgeVertexId: edge.vertexId,
+			seamId: seamsOnEdge(draft, edge)[0]?.id,
+		})
 
 		if (pending === undefined) {
 			setPending(edge)
@@ -123,11 +127,13 @@ export function AssembleView(props: AssembleViewProps) {
 
 	function edgeMenu(edge: EdgeRef, event: ReactMouseEvent) {
 		event.preventDefault()
-		props.editor.select({ panelId: edge.panelId, edgeVertexId: edge.vertexId })
+		choose(edge)
+
+		const held = seamsOnEdge(draft, edge)
 
 		const built = selectionActions({
 			...props.editor,
-			selection: { panelId: edge.panelId, edgeVertexId: edge.vertexId },
+			selection: { panelId: edge.panelId, edgeVertexId: edge.vertexId, seamId: held[0]?.id },
 		})
 
 		setMenu({
