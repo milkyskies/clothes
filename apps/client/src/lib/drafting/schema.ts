@@ -105,6 +105,19 @@ export const FileRecordSchema = Schema.Struct({
 
 export type FileRecord = Schema.Schema.Type<typeof FileRecordSchema>
 
+/**
+ * Unsaved state kept alongside a file so a crash or a closed tab does not lose
+ * work. It is deliberately not the file: saving is explicit, and this is only
+ * ever offered back as a recovery.
+ */
+export const RecoverySchema = Schema.Struct({
+	fileId: Schema.String,
+	at: Schema.Number,
+	draft: DraftSchema,
+})
+
+export type Recovery = Schema.Schema.Type<typeof RecoverySchema>
+
 export const SettingsSchema = Schema.Struct({
 	snap: Schema.Number,
 	lastOpenedFileId: Schema.optional(Schema.String),
@@ -114,8 +127,10 @@ export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
 export const decodeDraft = Schema.decodeUnknownEither(DraftSchema)
 export const decodeFileRecord = Schema.decodeUnknownEither(FileRecordSchema)
+export const decodeRecovery = Schema.decodeUnknownEither(RecoverySchema)
 export const decodeSettings = Schema.decodeUnknownEither(SettingsSchema)
 
 export const encodeDraft = Schema.encodeSync(DraftSchema)
 export const encodeFileRecord = Schema.encodeSync(FileRecordSchema)
+export const encodeRecovery = Schema.encodeSync(RecoverySchema)
 export const encodeSettings = Schema.encodeSync(SettingsSchema)

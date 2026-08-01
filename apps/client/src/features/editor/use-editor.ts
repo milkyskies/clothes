@@ -24,6 +24,8 @@ export interface Editor {
 	readonly setSnap: (snap: number) => void
 	/** `coalesce` keeps a drag as a single history entry by replacing the top of the stack. */
 	readonly apply: (next: Draft, coalesce?: boolean) => void
+	/** Replaces the draft outright and drops history, for opening a different file. */
+	readonly load: (next: Draft) => void
 	readonly undo: () => void
 	readonly redo: () => void
 }
@@ -55,6 +57,13 @@ export function useEditor(initial: Draft): Editor {
 		},
 		[present],
 	)
+
+	const load = useCallback((next: Draft) => {
+		setPast([])
+		setFuture([])
+		setPresent(next)
+		setSelection({})
+	}, [])
 
 	const undo = useCallback(() => {
 		setPast((entries) => {
@@ -94,9 +103,10 @@ export function useEditor(initial: Draft): Editor {
 			select: setSelection,
 			setSnap,
 			apply,
+			load,
 			undo,
 			redo,
 		}),
-		[apply, future.length, past.length, present, redo, selection, snap, tool, undo],
+		[apply, future.length, load, past.length, present, redo, selection, snap, tool, undo],
 	)
 }
