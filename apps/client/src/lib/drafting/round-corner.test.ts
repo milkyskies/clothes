@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import type { Document, Panel } from "./document"
-import { panelPath } from "./document"
+import type { Draft, Panel } from "./draft"
+import { panelPath } from "./draft"
 import { roundCorner } from "./edit"
 import { flatten } from "./geometry/measure"
 
@@ -20,7 +20,7 @@ function square(size: number): Panel {
 	}
 }
 
-function documentWith(panel: Panel): Document {
+function documentWith(panel: Panel): Draft {
 	return {
 		id: "t",
 		name: "t",
@@ -32,8 +32,8 @@ function documentWith(panel: Panel): Document {
 	}
 }
 
-function nearestApproach(document: Document, corner: { x: number; y: number }): number {
-	const panel = document.panels[0]
+function nearestApproach(draft: Draft, corner: { x: number; y: number }): number {
+	const panel = draft.panels[0]
 
 	if (panel === undefined) throw new Error("panel missing")
 

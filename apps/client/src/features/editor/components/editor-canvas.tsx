@@ -6,7 +6,7 @@ import { DuplicateIcon } from "@/features/shared/icons/duplicate-icon"
 import { FitIcon } from "@/features/shared/icons/fit-icon"
 import { PenIcon } from "@/features/shared/icons/pen-icon"
 import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
-import { findPanel, findVertex, nextVertex } from "@/lib/drafting/document"
+import { findPanel, findVertex, nextVertex } from "@/lib/drafting/draft"
 import {
 	addPolygonPanel,
 	addRectanglePanel,
@@ -146,7 +146,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 	).filter((value) => value !== 0)
 
 	function panelMenu(panelId: string, clientX: number, clientY: number) {
-		const panel = findPanel(props.editor.document, panelId)
+		const panel = findPanel(props.editor.draft, panelId)
 
 		if (panel === undefined) return
 
@@ -158,14 +158,14 @@ export function EditorCanvas(props: EditorCanvasProps) {
 				{
 					label: "複製する",
 					icon: DuplicateIcon,
-					onSelect: () => props.editor.apply(duplicatePanel(props.editor.document, panelId)),
+					onSelect: () => props.editor.apply(duplicatePanel(props.editor.draft, panelId)),
 				},
 				{
 					label: "消す",
 					icon: DeleteIcon,
 					danger: true,
 					onSelect: () => {
-						props.editor.apply(deletePanel(props.editor.document, panelId))
+						props.editor.apply(deletePanel(props.editor.draft, panelId))
 						props.editor.select({})
 					},
 				},
@@ -175,7 +175,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 
 	function edgeMenu(vertexId: string, clientX: number, clientY: number) {
 		const panelId = props.editor.selection.panelId
-		const panel = panelId === undefined ? undefined : findPanel(props.editor.document, panelId)
+		const panel = panelId === undefined ? undefined : findPanel(props.editor.draft, panelId)
 
 		if (panel === undefined || panelId === undefined) return
 
@@ -197,7 +197,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 
 						props.editor.apply(
 							insertVertex(
-								props.editor.document,
+								props.editor.draft,
 								panelId,
 								vertexId,
 								(from.x + to.x) / 2,
@@ -211,7 +211,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					icon: CutIcon,
 					onSelect: () =>
 						props.editor.apply(
-							setFoldEdge(props.editor.document, panelId, isFold ? undefined : vertexId),
+							setFoldEdge(props.editor.draft, panelId, isFold ? undefined : vertexId),
 						),
 				},
 				...(isCurvedEdge(panel, vertexId)
@@ -220,13 +220,13 @@ export function EditorCanvas(props: EditorCanvasProps) {
 								label: "まっすぐにする",
 								icon: CutIcon,
 								onSelect: () =>
-									props.editor.apply(setEdgeBow(props.editor.document, panelId, vertexId, 0)),
+									props.editor.apply(setEdgeBow(props.editor.draft, panelId, vertexId, 0)),
 							},
 							{
 								label: "角に戻す",
 								icon: CutIcon,
 								onSelect: () => {
-									props.editor.apply(sharpenCorner(props.editor.document, panelId, vertexId))
+									props.editor.apply(sharpenCorner(props.editor.draft, panelId, vertexId))
 									props.editor.select({ panelId })
 								},
 							},
@@ -236,7 +236,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 								label: "少しふくらませる",
 								icon: CutIcon,
 								onSelect: () =>
-									props.editor.apply(setEdgeBow(props.editor.document, panelId, vertexId, 1)),
+									props.editor.apply(setEdgeBow(props.editor.draft, panelId, vertexId, 1)),
 							},
 						]),
 			],
@@ -257,7 +257,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					label: "角を丸める（0.7cm）",
 					icon: CutIcon,
 					onSelect: () => {
-						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 0.7))
+						props.editor.apply(roundCorner(props.editor.draft, panelId, vertexId, 0.7))
 						props.editor.select({ panelId })
 					},
 				},
@@ -265,7 +265,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					label: "角を大きく丸める（2cm）",
 					icon: CutIcon,
 					onSelect: () => {
-						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 2))
+						props.editor.apply(roundCorner(props.editor.draft, panelId, vertexId, 2))
 						props.editor.select({ panelId })
 					},
 				},
@@ -274,7 +274,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					icon: DeleteIcon,
 					danger: true,
 					onSelect: () => {
-						props.editor.apply(deleteVertex(props.editor.document, panelId, vertexId))
+						props.editor.apply(deleteVertex(props.editor.draft, panelId, vertexId))
 						props.editor.select({ panelId })
 					},
 				},
@@ -294,9 +294,9 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					label: "ここに長方形を足す",
 					icon: RectangleIcon,
 					onSelect: () => {
-						const created = addRectanglePanel(props.editor.document, spot.x, spot.y, 30, 70)
+						const created = addRectanglePanel(props.editor.draft, spot.x, spot.y, 30, 70)
 
-						props.editor.apply(created.document)
+						props.editor.apply(created.draft)
 						props.editor.select({ panelId: created.panelId })
 					},
 				},
@@ -350,9 +350,9 @@ export function EditorCanvas(props: EditorCanvasProps) {
 			draft.length > 2 &&
 			Math.hypot(spot.x - first.x, spot.y - first.y) < 2
 		) {
-			const created = addPolygonPanel(props.editor.document, draft)
+			const created = addPolygonPanel(props.editor.draft, draft)
 
-			props.editor.apply(created.document)
+			props.editor.apply(created.draft)
 			props.editor.select({ panelId: created.panelId })
 			props.editor.setTool("select")
 			setDraft([])
@@ -386,10 +386,10 @@ export function EditorCanvas(props: EditorCanvasProps) {
 			>
 				<Grid screen={view.screen} extent={GRID_EXTENT_CM} ticks={ticks} />
 
-				{props.editor.document.panels.map((panel) => (
+				{props.editor.draft.panels.map((panel) => (
 					<PanelShape
 						key={panel.id}
-						document={props.editor.document}
+						draft={props.editor.draft}
 						panel={panel}
 						screen={view.screen}
 						selection={props.editor.selection}
@@ -404,7 +404,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						onMovePanel={(x, y, done) =>
 							props.editor.apply(
 								movePanel(
-									props.editor.document,
+									props.editor.draft,
 									panel.id,
 									snapValue(x, props.editor.snap),
 									snapValue(y, props.editor.snap),
@@ -416,7 +416,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 				))}
 
 				{props.editor.tool === "select" && props.editor.selection.panelId !== undefined
-					? props.editor.document.panels
+					? props.editor.draft.panels
 							.filter((panel) => panel.id === props.editor.selection.panelId)
 							.map((panel) => (
 								<VertexHandles
@@ -432,7 +432,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 									onMove={(vertexId, x, y, done) =>
 										props.editor.apply(
 											moveVertex(
-												props.editor.document,
+												props.editor.draft,
 												panel.id,
 												vertexId,
 												snapValue(x, props.editor.snap),
@@ -444,7 +444,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 									onSetBow={(vertexId, bow, at, done) =>
 										props.editor.apply(
 											setEdgeBowAt(
-												setEdgeBow(props.editor.document, panel.id, vertexId, bow),
+												setEdgeBow(props.editor.draft, panel.id, vertexId, bow),
 												panel.id,
 												vertexId,
 												at,

@@ -1,34 +1,34 @@
-import type { Document, Panel, Vertex } from "./document"
-import { vertexIndex } from "./document"
+import type { Draft, Panel, Vertex } from "./draft"
+import { vertexIndex } from "./draft"
 
 let counter = 0
 
-/** Ids only need to be unique inside a document, and the editor is the only writer. */
+/** Ids only need to be unique inside a draft, and the editor is the only writer. */
 export function nextId(prefix: string): string {
 	counter += 1
 
 	return `${prefix}-${counter.toString(36)}`
 }
 
-function replacePanel(document: Document, panel: Panel): Document {
+function replacePanel(draft: Draft, panel: Panel): Draft {
 	return {
-		...document,
-		panels: document.panels.map((existing) => (existing.id === panel.id ? panel : existing)),
+		...draft,
+		panels: draft.panels.map((existing) => (existing.id === panel.id ? panel : existing)),
 	}
 }
 
 export function moveVertex(
-	document: Document,
+	draft: Draft,
 	panelId: string,
 	vertexId: string,
 	x: number,
 	y: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
-	return replacePanel(document, {
+	return replacePanel(draft, {
 		...panel,
 		vertices: panel.vertices.map((vertex) =>
 			vertex.id === vertexId ? { ...vertex, x, y } : vertex,
@@ -36,12 +36,12 @@ export function moveVertex(
 	})
 }
 
-export function movePanel(document: Document, panelId: string, x: number, y: number): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function movePanel(draft: Draft, panelId: string, x: number, y: number): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
-	return replacePanel(document, { ...panel, x, y })
+	return replacePanel(draft, { ...panel, x, y })
 }
 
 /**
@@ -51,37 +51,37 @@ export function movePanel(document: Document, panelId: string, x: number, y: num
  * becomes two straight runs the author can re-curve deliberately.
  */
 export function insertVertex(
-	document: Document,
+	draft: Draft,
 	panelId: string,
 	vertexId: string,
 	x: number,
 	y: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
 	const index = vertexIndex(panel, vertexId)
 
-	if (index < 0) return document
+	if (index < 0) return draft
 
 	const vertices = [...panel.vertices]
 	const source = vertices[index]
 
-	if (source === undefined) return document
+	if (source === undefined) return draft
 
 	vertices[index] = { ...source, bow: undefined }
 	vertices.splice(index + 1, 0, { id: nextId("v"), x, y })
 
-	return replacePanel(document, { ...panel, vertices })
+	return replacePanel(draft, { ...panel, vertices })
 }
 
-export function deleteVertex(document: Document, panelId: string, vertexId: string): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function deleteVertex(draft: Draft, panelId: string, vertexId: string): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined || panel.vertices.length <= 3) return document
+	if (panel === undefined || panel.vertices.length <= 3) return draft
 
-	return replacePanel(document, {
+	return replacePanel(draft, {
 		...panel,
 		vertices: panel.vertices.filter((vertex) => vertex.id !== vertexId),
 	})
@@ -97,19 +97,14 @@ export function edgeBowAt(panel: Panel, vertexId: string): number {
 	return panel.vertices.find((entry) => entry.id === vertexId)?.bowAt ?? 0.5
 }
 
-export function setEdgeBowAt(
-	document: Document,
-	panelId: string,
-	vertexId: string,
-	at: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function setEdgeBowAt(draft: Draft, panelId: string, vertexId: string, at: number): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
 	const clamped = Math.min(0.95, Math.max(0.05, at))
 
-	return replacePanel(document, {
+	return replacePanel(draft, {
 		...panel,
 		vertices: panel.vertices.map((vertex) =>
 			vertex.id === vertexId ? { ...vertex, bowAt: clamped } : vertex,
@@ -122,17 +117,12 @@ export function isCurvedEdge(panel: Panel, vertexId: string): boolean {
 }
 
 /** Sets how deep an edge bows. Zero returns it to a straight run. */
-export function setEdgeBow(
-	document: Document,
-	panelId: string,
-	vertexId: string,
-	bow: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function setEdgeBow(draft: Draft, panelId: string, vertexId: string, bow: number): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
-	return replacePanel(document, {
+	return replacePanel(draft, {
 		...panel,
 		vertices: panel.vertices.map((vertex) =>
 			vertex.id === vertexId ? { ...vertex, bow: bow === 0 ? undefined : bow } : vertex,
@@ -149,33 +139,28 @@ export function setEdgeBow(
  * input, and the radius and setbacks are worked out from it. For a turn of angle
  * θ an arc of radius r clears its corner by r·(1/sin(θ/2) − 1).
  */
-export function roundCorner(
-	document: Document,
-	panelId: string,
-	vertexId: string,
-	gap: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function roundCorner(draft: Draft, panelId: string, vertexId: string, gap: number): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
 	const index = vertexIndex(panel, vertexId)
 	const count = panel.vertices.length
 
-	if (index < 0 || count < 3) return document
+	if (index < 0 || count < 3) return draft
 
 	const cornerVertex = panel.vertices[index]
 	const previous = panel.vertices[(index - 1 + count) % count]
 	const next = panel.vertices[(index + 1) % count]
 
-	if (cornerVertex === undefined || previous === undefined || next === undefined) return document
+	if (cornerVertex === undefined || previous === undefined || next === undefined) return draft
 
 	const corner = { x: cornerVertex.x, y: cornerVertex.y }
 
 	const incoming = Math.hypot(corner.x - previous.x, corner.y - previous.y)
 	const outgoing = Math.hypot(next.x - corner.x, next.y - corner.y)
 
-	if (incoming === 0 || outgoing === 0) return document
+	if (incoming === 0 || outgoing === 0) return draft
 
 	const backX = (corner.x - previous.x) / incoming
 	const backY = (corner.y - previous.y) / incoming
@@ -186,7 +171,7 @@ export function roundCorner(
 	const turn = Math.acos(alignment)
 	const half = Math.sin(turn / 2)
 
-	if (half <= 0 || half >= 1) return document
+	if (half <= 0 || half >= 1) return draft
 
 	const radius = gap / (1 / half - 1)
 	const setback = Math.min(radius / Math.tan(turn / 2), incoming * 0.9, outgoing * 0.9)
@@ -214,7 +199,7 @@ export function roundCorner(
 
 	vertices.splice(index, 1, startVertex, endVertex)
 
-	return replacePanel(document, { ...panel, vertices })
+	return replacePanel(draft, { ...panel, vertices })
 }
 
 function intersectLines(
@@ -244,15 +229,15 @@ function intersectLines(
  *
  * Falls back to straightening when those edges run parallel and never meet.
  */
-export function sharpenCorner(document: Document, panelId: string, vertexId: string): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function sharpenCorner(draft: Draft, panelId: string, vertexId: string): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
 	const count = panel.vertices.length
 	const index = vertexIndex(panel, vertexId)
 
-	if (index < 0 || count < 4) return setEdgeBow(document, panelId, vertexId, 0)
+	if (index < 0 || count < 4) return setEdgeBow(draft, panelId, vertexId, 0)
 
 	const start = panel.vertices[index]
 	const end = panel.vertices[(index + 1) % count]
@@ -260,51 +245,47 @@ export function sharpenCorner(document: Document, panelId: string, vertexId: str
 	const after = panel.vertices[(index + 2) % count]
 
 	if (start === undefined || end === undefined || before === undefined || after === undefined) {
-		return document
+		return draft
 	}
 
 	const corner = intersectLines(before, start, after, end)
 
-	if (corner === undefined) return setEdgeBow(document, panelId, vertexId, 0)
+	if (corner === undefined) return setEdgeBow(draft, panelId, vertexId, 0)
 
 	const vertices = [...panel.vertices]
 
 	vertices.splice(index, 2, { id: nextId("v"), x: corner.x, y: corner.y })
 
-	return replacePanel(document, { ...panel, vertices })
+	return replacePanel(draft, { ...panel, vertices })
 }
 
-export function setFoldEdge(
-	document: Document,
-	panelId: string,
-	vertexId: string | undefined,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function setFoldEdge(draft: Draft, panelId: string, vertexId: string | undefined): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
-	return replacePanel(document, { ...panel, foldEdge: vertexId })
+	return replacePanel(draft, { ...panel, foldEdge: vertexId })
 }
 
 export function updatePanel(
-	document: Document,
+	draft: Draft,
 	panelId: string,
 	patch: Partial<Pick<Panel, "name" | "quantity">>,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
-	return replacePanel(document, { ...panel, ...patch })
+	return replacePanel(draft, { ...panel, ...patch })
 }
 
 export function addRectanglePanel(
-	document: Document,
+	draft: Draft,
 	x: number,
 	y: number,
 	width: number,
 	height: number,
-): { document: Document; panelId: string } {
+): { draft: Draft; panelId: string } {
 	const panelId = nextId("panel")
 
 	const vertices: Vertex[] = [
@@ -316,13 +297,13 @@ export function addRectanglePanel(
 
 	return {
 		panelId,
-		document: {
-			...document,
+		draft: {
+			...draft,
 			panels: [
-				...document.panels,
+				...draft.panels,
 				{
 					id: panelId,
-					name: `パーツ${document.panels.length + 1}`,
+					name: `パーツ${draft.panels.length + 1}`,
 					quantity: 1,
 					x,
 					y,
@@ -334,9 +315,9 @@ export function addRectanglePanel(
 }
 
 export function addPolygonPanel(
-	document: Document,
+	draft: Draft,
 	points: readonly { x: number; y: number }[],
-): { document: Document; panelId: string } {
+): { draft: Draft; panelId: string } {
 	const panelId = nextId("panel")
 
 	const originX = Math.min(...points.map((entry) => entry.x))
@@ -344,13 +325,13 @@ export function addPolygonPanel(
 
 	return {
 		panelId,
-		document: {
-			...document,
+		draft: {
+			...draft,
 			panels: [
-				...document.panels,
+				...draft.panels,
 				{
 					id: panelId,
-					name: `パーツ${document.panels.length + 1}`,
+					name: `パーツ${draft.panels.length + 1}`,
 					quantity: 1,
 					x: originX,
 					y: originY,
@@ -365,15 +346,15 @@ export function addPolygonPanel(
 	}
 }
 
-export function duplicatePanel(document: Document, panelId: string): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
+export function duplicatePanel(draft: Draft, panelId: string): Draft {
+	const panel = draft.panels.find((entry) => entry.id === panelId)
 
-	if (panel === undefined) return document
+	if (panel === undefined) return draft
 
 	return {
-		...document,
+		...draft,
 		panels: [
-			...document.panels,
+			...draft.panels,
 			{
 				...panel,
 				id: nextId("panel"),
@@ -387,16 +368,14 @@ export function duplicatePanel(document: Document, panelId: string): Document {
 }
 
 /** Removing a panel takes its seams, stitches and annotations with it. */
-export function deletePanel(document: Document, panelId: string): Document {
+export function deletePanel(draft: Draft, panelId: string): Draft {
 	return {
-		...document,
-		panels: document.panels.filter((panel) => panel.id !== panelId),
-		seams: document.seams.filter(
+		...draft,
+		panels: draft.panels.filter((panel) => panel.id !== panelId),
+		seams: draft.seams.filter(
 			(seam) => seam.a.edge.panelId !== panelId && seam.b.edge.panelId !== panelId,
 		),
-		stitches: document.stitches.filter((stitch) => stitch.run.edge.panelId !== panelId),
-		annotations: document.annotations.filter(
-			(annotation) => annotation.run.edge.panelId !== panelId,
-		),
+		stitches: draft.stitches.filter((stitch) => stitch.run.edge.panelId !== panelId),
+		annotations: draft.annotations.filter((annotation) => annotation.run.edge.panelId !== panelId),
 	}
 }

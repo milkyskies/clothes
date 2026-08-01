@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { edgeGaps, edgeLength, openings } from "./assembly"
-import type { Document, Panel, Seam } from "./document"
+import type { Draft, Panel, Seam } from "./draft"
 
 function rectangle(id: string, width: number, height: number): Panel {
 	return {
@@ -18,7 +18,7 @@ function rectangle(id: string, width: number, height: number): Panel {
 	}
 }
 
-function documentWith(seams: readonly Seam[]): Document {
+function documentWith(seams: readonly Seam[]): Draft {
 	return {
 		id: "test",
 		name: "test",
@@ -49,7 +49,7 @@ describe("edgeGaps", () => {
 	})
 
 	it("a_seam_covering_the_whole_edge_leaves_nothing", () => {
-		const document = documentWith([
+		const draft = documentWith([
 			{
 				id: "side",
 				name: "脇縫い",
@@ -58,11 +58,11 @@ describe("edgeGaps", () => {
 			},
 		])
 
-		expect(edgeGaps(document, frontSide)).toEqual([])
+		expect(edgeGaps(draft, frontSide)).toEqual([])
 	})
 
 	it("a_seam_that_stops_short_leaves_the_rest_open", () => {
-		const document = documentWith([
+		const draft = documentWith([
 			{
 				id: "side",
 				name: "脇縫い",
@@ -71,11 +71,11 @@ describe("edgeGaps", () => {
 			},
 		])
 
-		expect(edgeGaps(document, frontSide)).toEqual([{ from: 52, to: 70 }])
+		expect(edgeGaps(draft, frontSide)).toEqual([{ from: 52, to: 70 }])
 	})
 
 	it("a_seam_starting_late_opens_the_top_as_well", () => {
-		const document = documentWith([
+		const draft = documentWith([
 			{
 				id: "side",
 				name: "脇縫い",
@@ -84,14 +84,14 @@ describe("edgeGaps", () => {
 			},
 		])
 
-		expect(edgeGaps(document, frontSide)).toEqual([
+		expect(edgeGaps(draft, frontSide)).toEqual([
 			{ from: 0, to: 13 },
 			{ from: 52, to: 70 },
 		])
 	})
 
 	it("overlapping_seams_merge_rather_than_double_count", () => {
-		const document = documentWith([
+		const draft = documentWith([
 			{
 				id: "one",
 				name: "a",
@@ -106,7 +106,7 @@ describe("edgeGaps", () => {
 			},
 		])
 
-		expect(edgeGaps(document, frontSide)).toEqual([])
+		expect(edgeGaps(draft, frontSide)).toEqual([])
 	})
 })
 
@@ -121,7 +121,7 @@ describe("openings", () => {
 			},
 		])
 
-		const document: Document = {
+		const draft: Draft = {
 			...base,
 			annotations: [
 				{ id: "a1", name: "身八つ口", run: { edge: frontSide, from: 0, to: 13 } },
@@ -129,7 +129,7 @@ describe("openings", () => {
 			],
 		}
 
-		const named = openings(document)
+		const named = openings(draft)
 			.filter((entry) => entry.edge.panelId === "front" && entry.name !== "")
 			.map((entry) => entry.name)
 

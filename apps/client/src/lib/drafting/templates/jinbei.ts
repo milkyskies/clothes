@@ -1,4 +1,4 @@
-import type { Document, Panel, Seam, Vertex } from "../document"
+import type { Draft, Panel, Seam, Vertex } from "../draft"
 
 /**
  * 甚平（上）, M size, taken from a commercial 製図 whose figures are 縫い代込み.
@@ -124,7 +124,7 @@ const seams: Seam[] = [
 	},
 ]
 
-export function jinbeiTop(): Document {
+export function jinbeiTop(): Draft {
 	return {
 		id: "jinbei-top-m",
 		name: "甚平（上）M",

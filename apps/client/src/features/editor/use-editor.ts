@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import type { Document } from "@/lib/drafting/document"
+import type { Draft } from "@/lib/drafting/draft"
 
 export type Tool = "select" | "pen" | "rectangle" | "seam"
 
@@ -13,7 +13,7 @@ export interface Selection {
 const HISTORY_LIMIT = 200
 
 export interface Editor {
-	readonly document: Document
+	readonly draft: Draft
 	readonly tool: Tool
 	readonly selection: Selection
 	readonly snap: number
@@ -23,7 +23,7 @@ export interface Editor {
 	readonly select: (selection: Selection) => void
 	readonly setSnap: (snap: number) => void
 	/** `coalesce` keeps a drag as a single history entry by replacing the top of the stack. */
-	readonly apply: (next: Document, coalesce?: boolean) => void
+	readonly apply: (next: Draft, coalesce?: boolean) => void
 	readonly undo: () => void
 	readonly redo: () => void
 }
@@ -34,17 +34,17 @@ export function snapValue(value: number, snap: number): number {
 	return Number((Math.round(value / snap) * snap).toFixed(3))
 }
 
-export function useEditor(initial: Document): Editor {
-	const [past, setPast] = useState<Document[]>([])
+export function useEditor(initial: Draft): Editor {
+	const [past, setPast] = useState<Draft[]>([])
 	const [present, setPresent] = useState(initial)
-	const [future, setFuture] = useState<Document[]>([])
+	const [future, setFuture] = useState<Draft[]>([])
 
 	const [tool, setTool] = useState<Tool>("select")
 	const [selection, setSelection] = useState<Selection>({})
 	const [snap, setSnap] = useState(0.5)
 
 	const apply = useCallback(
-		(next: Document, coalesce = false) => {
+		(next: Draft, coalesce = false) => {
 			setPast((entries) => {
 				if (coalesce && entries.length > 0) return entries
 
@@ -84,7 +84,7 @@ export function useEditor(initial: Document): Editor {
 
 	return useMemo(
 		() => ({
-			document: present,
+			draft: present,
 			tool,
 			selection,
 			snap,

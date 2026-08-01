@@ -1,4 +1,4 @@
-import type { Panel } from "@/lib/drafting/document"
+import type { Panel } from "@/lib/drafting/draft"
 import type { Selection } from "../use-editor"
 import { useSvgPointDrag } from "../use-svg-point-drag"
 

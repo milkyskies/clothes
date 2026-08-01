@@ -2,7 +2,7 @@ import { Input } from "@/features/shared/ui/input"
 import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
 import { edgeLength } from "@/lib/drafting/assembly"
-import { findPanel, findVertex } from "@/lib/drafting/document"
+import { findPanel, findVertex } from "@/lib/drafting/draft"
 import {
 	edgeBow,
 	edgeBowAt,
@@ -59,8 +59,8 @@ interface InspectorProps {
  * not mean crossing the window to find a button.
  */
 export function Inspector(props: InspectorProps) {
-	const { document, selection } = props.editor
-	const panel = selection.panelId === undefined ? undefined : findPanel(document, selection.panelId)
+	const { draft, selection } = props.editor
+	const panel = selection.panelId === undefined ? undefined : findPanel(draft, selection.panelId)
 
 	const vertex =
 		panel === undefined || selection.vertexId === undefined
@@ -74,14 +74,14 @@ export function Inspector(props: InspectorProps) {
 			<section className="space-y-2 p-4">
 				<h2 className="text-xs font-medium text-muted-foreground">{"パーツ"}</h2>
 
-				{document.panels.length === 0 ? (
+				{draft.panels.length === 0 ? (
 					<p className="text-xs text-muted-foreground">
 						{"ペンか長方形でパーツを描いてください。"}
 					</p>
 				) : null}
 
 				<ul className="space-y-0.5">
-					{document.panels.map((entry) => (
+					{draft.panels.map((entry) => (
 						<li key={entry.id}>
 							<button
 								type="button"
@@ -113,7 +113,7 @@ export function Inspector(props: InspectorProps) {
 									<NumberField
 										value={vertex.x}
 										onChange={(next) =>
-											props.editor.apply(moveVertex(document, panel.id, vertex.id, next, vertex.y))
+											props.editor.apply(moveVertex(draft, panel.id, vertex.id, next, vertex.y))
 										}
 									/>
 								</Field>
@@ -122,7 +122,7 @@ export function Inspector(props: InspectorProps) {
 									<NumberField
 										value={vertex.y}
 										onChange={(next) =>
-											props.editor.apply(moveVertex(document, panel.id, vertex.id, vertex.x, next))
+											props.editor.apply(moveVertex(draft, panel.id, vertex.id, vertex.x, next))
 										}
 									/>
 								</Field>
@@ -133,7 +133,7 @@ export function Inspector(props: InspectorProps) {
 							<>
 								<Field label="長さ">
 									<span className="tnum text-sm">
-										{`${edgeLength(document, { panelId: panel.id, vertexId: edgeVertexId }).toFixed(1)} cm`}
+										{`${edgeLength(draft, { panelId: panel.id, vertexId: edgeVertexId }).toFixed(1)} cm`}
 									</span>
 								</Field>
 
@@ -142,7 +142,7 @@ export function Inspector(props: InspectorProps) {
 										value={edgeBow(panel, edgeVertexId)}
 										step={0.1}
 										onChange={(next) =>
-											props.editor.apply(setEdgeBow(document, panel.id, edgeVertexId, next))
+											props.editor.apply(setEdgeBow(draft, panel.id, edgeVertexId, next))
 										}
 									/>
 								</Field>
@@ -152,7 +152,7 @@ export function Inspector(props: InspectorProps) {
 										value={Number(edgeBowAt(panel, edgeVertexId).toFixed(2))}
 										step={0.05}
 										onChange={(next) =>
-											props.editor.apply(setEdgeBowAt(document, panel.id, edgeVertexId, next))
+											props.editor.apply(setEdgeBowAt(draft, panel.id, edgeVertexId, next))
 										}
 									/>
 								</Field>
@@ -169,9 +169,7 @@ export function Inspector(props: InspectorProps) {
 									<Input
 										value={panel.name}
 										onChange={(event) =>
-											props.editor.apply(
-												updatePanel(document, panel.id, { name: event.target.value }),
-											)
+											props.editor.apply(updatePanel(draft, panel.id, { name: event.target.value }))
 										}
 										className="h-7 w-32 text-sm"
 									/>
@@ -183,7 +181,7 @@ export function Inspector(props: InspectorProps) {
 										step={1}
 										onChange={(next) =>
 											props.editor.apply(
-												updatePanel(document, panel.id, {
+												updatePanel(draft, panel.id, {
 													quantity: Math.max(1, Math.round(next)),
 												}),
 											)

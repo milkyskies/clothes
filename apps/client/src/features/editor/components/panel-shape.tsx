@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { edgeGaps, seamRunsOn } from "@/lib/drafting/assembly"
-import { type Document, type Panel, panelPath, vertexPoint } from "@/lib/drafting/document"
+import { type Draft, type Panel, panelPath, vertexPoint } from "@/lib/drafting/draft"
 import { flatten, segmentLength } from "@/lib/drafting/geometry/measure"
 import { type Point, type Segment, segmentStart } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
@@ -8,7 +8,7 @@ import type { Selection } from "../use-editor"
 import { useSvgPointDrag } from "../use-svg-point-drag"
 
 interface PanelShapeProps {
-	document: Document
+	draft: Draft
 	panel: Panel
 	screen: (pixels: number) => number
 	selection: Selection
@@ -180,9 +180,9 @@ export function PanelShape(props: PanelShapeProps) {
 	const gapSegments = props.panel.vertices.flatMap((vertex) => {
 		const edge = { panelId: props.panel.id, vertexId: vertex.id }
 
-		if (seamRunsOn(props.document, edge).length === 0) return []
+		if (seamRunsOn(props.draft, edge).length === 0) return []
 
-		const spans = edgeGaps(props.document, edge)
+		const spans = edgeGaps(props.draft, edge)
 
 		if (spans.length === 0) return []
 

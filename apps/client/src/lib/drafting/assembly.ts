@@ -1,11 +1,4 @@
-import {
-	type Document,
-	type EdgeRef,
-	type EdgeRun,
-	findPanel,
-	panelPath,
-	vertexIndex,
-} from "./document"
+import { type Draft, type EdgeRef, type EdgeRun, findPanel, panelPath, vertexIndex } from "./draft"
 import { segmentLength } from "./geometry/measure"
 import { segmentStart } from "./geometry/path"
 
@@ -18,8 +11,8 @@ export function sameEdge(a: EdgeRef, b: EdgeRef): boolean {
 	return a.panelId === b.panelId && a.vertexId === b.vertexId
 }
 
-export function edgeLength(document: Document, edge: EdgeRef): number {
-	const panel = findPanel(document, edge.panelId)
+export function edgeLength(draft: Draft, edge: EdgeRef): number {
+	const panel = findPanel(draft, edge.panelId)
 
 	if (panel === undefined) return 0
 
@@ -56,10 +49,10 @@ function merge(spans: readonly Span[]): Span[] {
 	return merged
 }
 
-export function seamRunsOn(document: Document, edge: EdgeRef): EdgeRun[] {
+export function seamRunsOn(draft: Draft, edge: EdgeRef): EdgeRun[] {
 	const runs: EdgeRun[] = []
 
-	for (const seam of document.seams) {
+	for (const seam of draft.seams) {
 		if (sameEdge(seam.a.edge, edge)) runs.push(seam.a)
 		if (sameEdge(seam.b.edge, edge)) runs.push(seam.b)
 	}
@@ -73,12 +66,12 @@ export function seamRunsOn(document: Document, edge: EdgeRef): EdgeRun[] {
  * This is the only source of openings in the model: 脇あき, 袖付けあき and
  * 身八つ口 are all just a seam that stops before the end of its edge.
  */
-export function edgeGaps(document: Document, edge: EdgeRef): Span[] {
-	const total = edgeLength(document, edge)
+export function edgeGaps(draft: Draft, edge: EdgeRef): Span[] {
+	const total = edgeLength(draft, edge)
 
 	if (total <= 0) return []
 
-	const sewn = merge(seamRunsOn(document, edge).map((run) => ({ from: run.from, to: run.to })))
+	const sewn = merge(seamRunsOn(draft, edge).map((run) => ({ from: run.from, to: run.to })))
 	const gaps: Span[] = []
 
 	let cursor = 0
@@ -94,16 +87,16 @@ export function edgeGaps(document: Document, edge: EdgeRef): Span[] {
 	return gaps.filter((gap) => gap.to - gap.from > 0.01)
 }
 
-/** Every unsewn run in the document, with whatever name a template gave it. */
-export function openings(document: Document): { edge: EdgeRef; span: Span; name: string }[] {
+/** Every unsewn run in the draft, with whatever name a template gave it. */
+export function openings(draft: Draft): { edge: EdgeRef; span: Span; name: string }[] {
 	const found: { edge: EdgeRef; span: Span; name: string }[] = []
 
-	for (const panel of document.panels) {
+	for (const panel of draft.panels) {
 		for (const vertex of panel.vertices) {
 			const edge: EdgeRef = { panelId: panel.id, vertexId: vertex.id }
 
-			for (const span of edgeGaps(document, edge)) {
-				const named = document.annotations.find(
+			for (const span of edgeGaps(draft, edge)) {
+				const named = draft.annotations.find(
 					(annotation) =>
 						sameEdge(annotation.run.edge, edge) &&
 						annotation.run.from <= span.to &&

@@ -28,9 +28,9 @@ export function EditorPage() {
 	useHotkey("P", () => editor.setTool("pen"), { ignoreInputs: true })
 
 	function addRectangle() {
-		const created = addRectanglePanel(editor.document, 4, 4, 30, 70)
+		const created = addRectanglePanel(editor.draft, 4, 4, 30, 70)
 
-		editor.apply(created.document)
+		editor.apply(created.draft)
 		editor.select({ panelId: created.panelId })
 		editor.setTool("select")
 	}
@@ -108,7 +108,7 @@ export function EditorPage() {
 						<span>{"cm"}</span>
 					</Label>
 
-					<span className="ml-auto text-sm">{editor.document.name}</span>
+					<span className="ml-auto text-sm">{editor.draft.name}</span>
 				</header>
 
 				<div className="min-h-0 flex-1">
