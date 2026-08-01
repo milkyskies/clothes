@@ -17,9 +17,16 @@ import { EditorCanvas } from "./editor-canvas"
 import { FileBar } from "./file-bar"
 import { Inspector } from "./inspector"
 
-const TOOLS: readonly { value: Tool; label: string; icon: typeof PenIcon }[] = [
-	{ value: "select", label: "えらぶ", icon: SelectIcon },
-	{ value: "pen", label: "ペン", icon: PenIcon },
+interface ToolEntry {
+	readonly value: Tool
+	readonly label: string
+	readonly shortcut: string
+	readonly icon: typeof PenIcon
+}
+
+const TOOLS: readonly ToolEntry[] = [
+	{ value: "select", label: "えらぶ", shortcut: "V", icon: SelectIcon },
+	{ value: "pen", label: "ペン", shortcut: "P", icon: PenIcon },
 ]
 
 export function EditorPage() {
@@ -46,110 +53,116 @@ export function EditorPage() {
 		editor.setTool("select")
 	}
 
+	function changeSnap(value: string) {
+		const parsed = Number(value)
+
+		if (!Number.isFinite(parsed)) return
+
+		const snap = Math.max(0, parsed)
+
+		editor.setSnap(snap)
+		files.setSnap(snap)
+	}
+
 	return (
-		<div className="flex h-screen overflow-hidden">
-			<div className="flex min-w-0 flex-1 flex-col">
-				<header className="flex items-center gap-3 border-b px-3 py-2">
-					<div className="flex items-center gap-0.5">
-						{TOOLS.map((entry) => (
-							<Button
-								key={entry.value}
-								variant={editor.tool === entry.value ? "default" : "ghost"}
-								size="icon"
-								className="size-8"
-								onClick={() => editor.setTool(entry.value)}
-								title={entry.label}
-							>
-								<entry.icon className="size-4" />
-							</Button>
-						))}
+		<div className="flex h-screen flex-col overflow-hidden">
+			<header className="flex shrink-0 items-center gap-3 border-b px-3 py-2">
+				<FileBar files={files} />
 
-						<Button
-							variant="ghost"
-							size="icon"
-							className="size-8"
-							onClick={addRectangle}
-							title="長方形を足す"
-						>
-							<RectangleIcon className="size-4" />
-						</Button>
-					</div>
+				<Separator orientation="vertical" className="h-6" />
 
-					<Separator orientation="vertical" className="h-6" />
-
-					<div className="flex items-center gap-0.5">
-						<Button
-							variant="ghost"
-							size="icon"
-							className="size-8"
-							disabled={!editor.canUndo}
-							onClick={editor.undo}
-							title="元に戻す"
-						>
-							<UndoIcon className="size-4" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="size-8"
-							disabled={!editor.canRedo}
-							onClick={editor.redo}
-							title="やり直す"
-						>
-							<RedoIcon className="size-4" />
-						</Button>
-					</div>
-
-					<Separator orientation="vertical" className="h-6" />
-
-					<Label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-						<span>{"スナップ"}</span>
-						<Input
-							type="number"
-							min={0}
-							step={0.1}
-							value={files.snap}
-							onChange={(event) => {
-								const parsed = Number(event.target.value)
-
-								if (Number.isFinite(parsed)) editor.setSnap(Math.max(0, parsed))
-								files.setSnap(Math.max(0, parsed))
-							}}
-							className="tnum h-7 w-16 text-right text-xs"
-						/>
-						<span>{"cm"}</span>
-					</Label>
-
-					<div className="ml-auto">
-						<FileBar files={files} />
-					</div>
-				</header>
-
-				{files.recovery === undefined ? null : (
-					<div className="flex items-center gap-3 border-b bg-muted/60 px-3 py-2 text-xs">
-						<span>{"保存されていない作業が残っています。"}</span>
-						<Button variant="default" size="sm" className="h-7 text-xs" onClick={files.restore}>
-							{"元に戻す"}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="h-7 text-xs"
-							onClick={() => void files.discardRecovery()}
-						>
-							{"捨てる"}
-						</Button>
-					</div>
-				)}
-
-				<div className="min-h-0 flex-1">
-					<EditorCanvas editor={editor} />
+				<div className="flex items-center gap-0.5">
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-8"
+						disabled={!editor.canUndo}
+						onClick={editor.undo}
+						title="元に戻す（⌘Z）"
+					>
+						<UndoIcon className="size-4" />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-8"
+						disabled={!editor.canRedo}
+						onClick={editor.redo}
+						title="やり直す（⇧⌘Z）"
+					>
+						<RedoIcon className="size-4" />
+					</Button>
 				</div>
-			</div>
 
-			<aside className="w-72 shrink-0 border-l">
-				<Inspector editor={editor} />
-			</aside>
+				<Separator orientation="vertical" className="h-6" />
+
+				<Label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+					<span>{"スナップ"}</span>
+					<Input
+						type="number"
+						min={0}
+						step={0.1}
+						value={files.snap}
+						onChange={(event) => changeSnap(event.target.value)}
+						className="tnum h-7 w-16 text-right text-xs"
+					/>
+					<span>{"cm"}</span>
+				</Label>
+			</header>
+
+			{files.recovery === undefined ? null : (
+				<div className="flex shrink-0 items-center gap-3 border-b bg-muted/60 px-3 py-2 text-xs">
+					<span>{"保存されていない作業が残っています。"}</span>
+					<Button variant="default" size="sm" className="h-7 text-xs" onClick={files.restore}>
+						{"元に戻す"}
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-7 text-xs"
+						onClick={() => void files.discardRecovery()}
+					>
+						{"捨てる"}
+					</Button>
+				</div>
+			)}
+
+			<div className="flex min-h-0 flex-1">
+				<nav className="flex w-12 shrink-0 flex-col items-center gap-1 border-r py-2">
+					{TOOLS.map((entry) => (
+						<Button
+							key={entry.value}
+							variant={editor.tool === entry.value ? "default" : "ghost"}
+							size="icon"
+							className="size-9"
+							onClick={() => editor.setTool(entry.value)}
+							title={`${entry.label}（${entry.shortcut}）`}
+						>
+							<entry.icon className="size-4" />
+						</Button>
+					))}
+
+					<Separator className="my-1 w-6" />
+
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-9"
+						onClick={addRectangle}
+						title="長方形を足す"
+					>
+						<RectangleIcon className="size-4" />
+					</Button>
+				</nav>
+
+				<main className="min-w-0 flex-1">
+					<EditorCanvas editor={editor} />
+				</main>
+
+				<aside className="w-72 shrink-0 border-l">
+					<Inspector editor={editor} />
+				</aside>
+			</div>
 		</div>
 	)
 }
