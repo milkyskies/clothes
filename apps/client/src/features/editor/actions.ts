@@ -188,7 +188,16 @@ export function selectionActions(editor: Editor): { title: string; actions: Acti
 		if (first === undefined) {
 			return {
 				title: `${name} の辺`,
-				actions: [{ label: "ここから縫う", icon: CutIcon, run: () => editor.setPending(edge) }],
+				actions: [
+					{
+						label: "ここから縫う",
+						icon: CutIcon,
+						run: () => {
+							editor.setTool("sew")
+							editor.setPending(edge)
+						},
+					},
+				],
 			}
 		}
 

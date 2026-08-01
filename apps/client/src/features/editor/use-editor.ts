@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState } from "react"
 import type { Draft, EdgeRef } from "@/lib/drafting/draft"
 
-export type Tool = "select" | "pen" | "rectangle"
+export type Tool = "select" | "pen" | "rectangle" | "sew"
 
 /**
  * 製図 shapes the pieces, 組み立て says how they join, 出来上がり shows what that
  * makes and 裁ち方 says what to cut. One drawing seen four ways: the last two are
  * derived, so nothing in them is edited except the width of the cloth.
  */
-export type Mode = "draw" | "assemble" | "finished" | "cutting"
+export type Mode = "draw" | "assemble" | "finished" | "cutting" | "wear"
 
 export interface Selection {
 	readonly panelId?: string

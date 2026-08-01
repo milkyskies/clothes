@@ -120,6 +120,40 @@ export function parkLoose(draft: Draft, assembly: Assembly): Map<string, Matrix>
 	return parked
 }
 
+export interface ContentBounds {
+	readonly x: number
+	readonly y: number
+	readonly width: number
+	readonly height: number
+}
+
+/** The rectangle a set of placements actually covers, for opening a view centred on it. */
+export function placementsBounds(draft: Draft, placements: readonly Placement[]): ContentBounds {
+	const corners = placements.flatMap((placement) => {
+		const panel = findPanel(draft, placement.panelId)
+
+		if (panel === undefined) return []
+
+		const bounds = panelBounds(panel)
+
+		return [
+			applyMatrix(placement.matrix, { x: panel.x + bounds.minX, y: panel.y + bounds.minY }),
+			applyMatrix(placement.matrix, { x: panel.x + bounds.maxX, y: panel.y + bounds.minY }),
+			applyMatrix(placement.matrix, { x: panel.x + bounds.minX, y: panel.y + bounds.maxY }),
+			applyMatrix(placement.matrix, { x: panel.x + bounds.maxX, y: panel.y + bounds.maxY }),
+		]
+	})
+
+	if (corners.length === 0) return { x: 0, y: 0, width: 100, height: 100 }
+
+	const xs = corners.map((point) => point.x)
+	const ys = corners.map((point) => point.y)
+	const minX = Math.min(...xs)
+	const minY = Math.min(...ys)
+
+	return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY }
+}
+
 /** The assembly with loose pieces moved onto the shelf underneath it. */
 export function tidied(draft: Draft, assembly: Assembly): Placement[] {
 	const parked = parkLoose(draft, assembly)

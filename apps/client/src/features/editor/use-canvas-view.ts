@@ -66,7 +66,7 @@ function useElementSize(ref: RefObject<HTMLElement | null>): Size {
  */
 export function useCanvasView(
 	ref: RefObject<HTMLElement | null>,
-	content: { width: number; height: number; margin: number },
+	content: { width: number; height: number; margin: number; x?: number; y?: number },
 ): CanvasView {
 	const size = useElementSize(ref)
 	const [zoom, setZoom] = useState(1)
@@ -96,13 +96,15 @@ export function useCanvasView(
 
 	const baseWidth = content.width + content.margin * 2
 	const baseHeight = content.height + content.margin * 2
+	const contentX = content.x ?? 0
+	const contentY = content.y ?? 0
 
 	const viewWidth = baseWidth / zoom
 	const viewHeight = (viewWidth * size.height) / size.width
 	const centimetresPerPixel = viewWidth / size.width
 
-	const originX = -content.margin + (baseWidth - viewWidth) / 2 + pan.x
-	const originY = -content.margin + (baseHeight - viewHeight) / 2 + pan.y
+	const originX = contentX - content.margin + (baseWidth - viewWidth) / 2 + pan.x
+	const originY = contentY - content.margin + (baseHeight - viewHeight) / 2 + pan.y
 
 	const zoomAt = useCallback(
 		(nextZoom: number, pointerX: number, pointerY: number) => {
@@ -124,8 +126,18 @@ export function useCanvasView(
 
 			setZoom(clamped)
 			setPan({
-				x: anchorX - offsetX * nextScale + content.margin - (baseWidth - nextViewWidth) / 2,
-				y: anchorY - offsetY * nextScale + content.margin - (baseHeight - nextViewHeight) / 2,
+				x:
+					anchorX -
+					offsetX * nextScale -
+					contentX +
+					content.margin -
+					(baseWidth - nextViewWidth) / 2,
+				y:
+					anchorY -
+					offsetY * nextScale -
+					contentY +
+					content.margin -
+					(baseHeight - nextViewHeight) / 2,
 			})
 		},
 		[
@@ -133,6 +145,8 @@ export function useCanvasView(
 			baseWidth,
 			centimetresPerPixel,
 			content.margin,
+			contentX,
+			contentY,
 			originX,
 			originY,
 			ref,

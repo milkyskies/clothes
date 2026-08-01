@@ -1,18 +1,24 @@
 import { type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from "react"
-import { addSeam, seamsOnEdge } from "@/lib/drafting/assemble"
-import { edgeLength, sameEdge } from "@/lib/drafting/assembly"
+import { addSeam } from "@/lib/drafting/assemble"
+import { sameEdge } from "@/lib/drafting/assembly"
 import { type EdgeRef, findPanel, panelBounds, panelPath } from "@/lib/drafting/draft"
 import type { Point } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import { assemble, type Placement } from "@/lib/drafting/layout"
 import { selectionActions } from "../actions"
-import { applyMatrix, edgeStretches, midOf, runPolyline, tidied } from "../assembled-geometry"
+import {
+	applyMatrix,
+	edgeStretches,
+	midOf,
+	placementsBounds,
+	runPolyline,
+	tidied,
+} from "../assembled-geometry"
 import { useCanvasView } from "../use-canvas-view"
 import type { Editor } from "../use-editor"
 import { ContextMenu, type MenuTarget } from "./context-menu"
 
-const FRAME_CM = 220
-const MARGIN = 20
+const MARGIN = 25
 
 /**
  * A click counts as landing on nothing when it hits the sheet behind everything.
@@ -50,15 +56,21 @@ export function AssembleView(props: AssembleViewProps) {
 	const pending = props.editor.pending
 	const setPending = props.editor.setPending
 
-	const view = useCanvasView(containerRef, {
-		width: FRAME_CM,
-		height: FRAME_CM,
-		margin: MARGIN,
-	})
-
 	const { draft, selection } = props.editor
 	const assembly = useMemo(() => assemble(draft, { opened: true }), [draft])
 	const placements = useMemo(() => tidied(draft, assembly), [draft, assembly])
+
+	// The frame is captured once when the view opens: it should greet you centred
+	// on the garment, then hold still while you work rather than chase each edit.
+	const [frame] = useState(() => placementsBounds(draft, placements))
+
+	const view = useCanvasView(containerRef, {
+		width: frame.width,
+		height: frame.height,
+		x: frame.x,
+		y: frame.y,
+		margin: MARGIN,
+	})
 
 	const chosen =
 		selection.panelId === undefined || selection.edgeVertexId === undefined
@@ -165,9 +177,8 @@ export function AssembleView(props: AssembleViewProps) {
 	return (
 		<div
 			ref={containerRef}
-			className="relative h-full w-full touch-none overflow-hidden overscroll-none bg-background"
+			className="relative h-full w-full touch-none select-none overflow-hidden overscroll-none bg-background"
 		>
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: the seam list in the inspector is the keyboard path. */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: this is a pointer surface; the inspector mirrors every action. */}
 			<svg
 				viewBox={view.viewBox}
@@ -301,7 +312,12 @@ export function AssembleView(props: AssembleViewProps) {
 													return
 												}
 
-												sew(entry.edge)
+												if (props.editor.tool === "sew") {
+													sew(entry.edge)
+													return
+												}
+
+												choose(entry.edge, undefined)
 											}}
 											onContextMenu={(event) => edgeMenu(entry.edge, seamId, event)}
 										/>

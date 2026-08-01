@@ -5,11 +5,11 @@ import { type Draft, findPanel, panelPath } from "@/lib/drafting/draft"
 import type { Point } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import { assemble, type Matrix, type Placement, placementMatrix } from "@/lib/drafting/layout"
+import { placementsBounds } from "../assembled-geometry"
 import { useCanvasView } from "../use-canvas-view"
 import type { Editor } from "../use-editor"
 
-const FRAME_CM = 200
-const MARGIN = 20
+const MARGIN = 25
 const FAR = 500
 
 function place(matrix: Matrix, point: Point): Point {
@@ -80,13 +80,17 @@ export function FinishedView(props: FinishedViewProps) {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [opened, setOpened] = useState(false)
 
+	const { draft } = props.editor
+
+	const [frame] = useState(() => placementsBounds(draft, assemble(draft).placements))
+
 	const view = useCanvasView(containerRef, {
-		width: FRAME_CM,
-		height: FRAME_CM,
+		width: frame.width,
+		height: frame.height,
+		x: frame.x,
+		y: frame.y,
 		margin: MARGIN,
 	})
-
-	const { draft } = props.editor
 	const assembly = useMemo(() => assemble(draft, { opened }), [draft, opened])
 	const loose = new Set(assembly.loose)
 
@@ -99,7 +103,7 @@ export function FinishedView(props: FinishedViewProps) {
 	return (
 		<div
 			ref={containerRef}
-			className="relative h-full w-full touch-none overflow-hidden overscroll-none bg-background"
+			className="relative h-full w-full touch-none select-none overflow-hidden overscroll-none bg-background"
 		>
 			<svg
 				viewBox={view.viewBox}

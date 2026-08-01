@@ -1,7 +1,7 @@
 import { runLength } from "./assemble"
 import { boundaryOffsets, edgeGaps, type Span, sameEdge } from "./assembly"
 import { cuttingLayout } from "./cutting"
-import type { Draft, EdgeRef, Panel } from "./draft"
+import type { Draft, EdgeRef } from "./draft"
 import { findPanel } from "./draft"
 import { signedArea } from "./geometry/path"
 import { assemble } from "./layout"

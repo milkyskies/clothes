@@ -127,7 +127,7 @@ function sideOf(line: [Point, Point], point: Point): number {
 	)
 }
 
-function otherPanel(seam: Seam, panelId: string): string | undefined {
+function _otherPanel(seam: Seam, panelId: string): string | undefined {
 	if (seam.a.edge.panelId === panelId && seam.b.edge.panelId !== panelId) {
 		return seam.b.edge.panelId
 	}

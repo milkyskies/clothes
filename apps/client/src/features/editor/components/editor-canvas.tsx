@@ -1,28 +1,15 @@
 import { type MouseEvent as ReactMouseEvent, useRef, useState } from "react"
-import { AddPointIcon } from "@/features/shared/icons/add-point-icon"
-import { CutIcon } from "@/features/shared/icons/cut-icon"
-import { DeleteIcon } from "@/features/shared/icons/delete-icon"
-import { DuplicateIcon } from "@/features/shared/icons/duplicate-icon"
 import { FitIcon } from "@/features/shared/icons/fit-icon"
 import { PenIcon } from "@/features/shared/icons/pen-icon"
 import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
-import type { EdgeRef } from "@/lib/drafting/draft"
-import { findPanel, findVertex, nextVertex } from "@/lib/drafting/draft"
+import { findPanel, panelBounds } from "@/lib/drafting/draft"
 import {
 	addPolygonPanel,
 	addRectanglePanel,
-	deletePanel,
-	deleteVertex,
-	duplicatePanel,
-	insertVertex,
-	isCurvedEdge,
 	movePanel,
 	moveVertex,
-	roundCorner,
 	setEdgeBow,
 	setEdgeBowAt,
-	setFoldEdge,
-	sharpenCorner,
 } from "@/lib/drafting/edit"
 import { edgeActions, panelActions, vertexActions } from "../actions"
 import { useCanvasView } from "../use-canvas-view"
@@ -36,12 +23,6 @@ import { VertexHandles } from "./vertex-handles"
 const MARGIN = 20
 const TICK_SPACING = 10
 
-/**
- * The view frame is a fixed span of cloth rather than the extent of what is
- * drawn. Deriving it from the drawing made the viewBox change as pieces moved,
- * which read as the canvas zooming on its own mid-drag.
- */
-const FRAME_CM = 180
 const GRID_EXTENT_CM = 600
 
 interface GridProps {
@@ -138,9 +119,36 @@ export function EditorCanvas(props: EditorCanvasProps) {
 	const [draft, setDraft] = useState<{ x: number; y: number }[]>([])
 	const [menu, setMenu] = useState<MenuTarget | undefined>(undefined)
 
+	// The frame is captured once when the view opens, so it greets you centred on
+	// the pieces and then holds still: deriving it live from the drawing made the
+	// viewBox change as pieces moved, which read as the canvas zooming on its own.
+	const [frame] = useState(() => {
+		const panels = props.editor.draft.panels
+
+		if (panels.length === 0) return { x: -20, y: -20, width: 180, height: 180 }
+
+		const corners = panels.flatMap((panel) => {
+			const bounds = panelBounds(panel)
+
+			return [
+				{ x: panel.x + bounds.minX, y: panel.y + bounds.minY },
+				{ x: panel.x + bounds.maxX, y: panel.y + bounds.maxY },
+			]
+		})
+
+		const xs = corners.map((corner) => corner.x)
+		const ys = corners.map((corner) => corner.y)
+		const minX = Math.min(...xs)
+		const minY = Math.min(...ys)
+
+		return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY }
+	})
+
 	const view = useCanvasView(containerRef, {
-		width: FRAME_CM,
-		height: FRAME_CM,
+		width: frame.width,
+		height: frame.height,
+		x: frame.x,
+		y: frame.y,
 		margin: MARGIN,
 	})
 	const ticks = Array.from(
@@ -265,9 +273,8 @@ export function EditorCanvas(props: EditorCanvasProps) {
 	return (
 		<div
 			ref={containerRef}
-			className="relative h-full w-full touch-none overflow-hidden overscroll-none bg-background"
+			className="relative h-full w-full touch-none select-none overflow-hidden overscroll-none bg-background"
 		>
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: drawing is pointer work; every operation is also reachable from the inspector. */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: the canvas is a pointer surface; the inspector provides the keyboard path. */}
 			<svg
 				viewBox={view.viewBox}

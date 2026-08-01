@@ -22,6 +22,10 @@ function hintFor(editor: Editor): string {
 		return "「たたむ」は台に置いた形、「開く」は折りをほどいた形です。"
 	}
 
+	if (editor.mode === "wear") {
+		return "ドラッグで回して見られます。布は縫い方のとおりに計算で垂れています。"
+	}
+
 	if (editor.mode === "assemble") {
 		if (editor.pending !== undefined) {
 			const panel = findPanel(draft, editor.pending.panelId)
@@ -29,11 +33,15 @@ function hintFor(editor: Editor): string {
 			return `${panel?.name ?? "部品"}の辺を選びました。合わせたい辺をクリックしてください。`
 		}
 
+		if (editor.tool === "sew") {
+			return "「ぬう」中です。赤いふちを2つクリックすると縫い合わせます。"
+		}
+
 		if (selection.seamId !== undefined || selection.edgeVertexId !== undefined) {
 			return "この辺にできることが右にあります。"
 		}
 
-		return "赤いふちはまだ縫われていないところです。辺を2つクリックすると縫い合わせます。"
+		return "赤いふち＝まだ縫われていないところ。縫うには上の「ぬう」を選びます。"
 	}
 
 	if (editor.tool === "pen") {

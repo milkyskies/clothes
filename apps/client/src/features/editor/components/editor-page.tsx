@@ -1,4 +1,6 @@
 import { useHotkey } from "@tanstack/react-hotkeys"
+import { lazy, Suspense } from "react"
+import { CutIcon } from "@/features/shared/icons/cut-icon"
 import { PenIcon } from "@/features/shared/icons/pen-icon"
 import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
 import { RedoIcon } from "@/features/shared/icons/redo-icon"
@@ -20,6 +22,11 @@ import { CuttingView } from "./cutting-view"
 import { EditorCanvas } from "./editor-canvas"
 import { FileBar } from "./file-bar"
 import { FinishedView } from "./finished-view"
+
+// The 3D stack is the heaviest thing in the bundle and most sessions never
+// open it, so it only loads when the tab is first clicked.
+const WearView = lazy(() => import("./wear-view"))
+
 import { HintBar } from "./hint-bar"
 import { Inspector } from "./inspector"
 import { SeamInspector } from "./seam-inspector"
@@ -36,10 +43,20 @@ const TOOLS: readonly ToolEntry[] = [
 	{ value: "pen", label: "ペン", shortcut: "P", icon: PenIcon },
 ]
 
+/**
+ * 組み立て separates looking from doing: えらぶ inspects without ever creating a
+ * seam, and ぬう is armed sewing, so a stray click cannot join two edges.
+ */
+const ASSEMBLE_TOOLS: readonly ToolEntry[] = [
+	{ value: "select", label: "えらぶ", shortcut: "V", icon: SelectIcon },
+	{ value: "sew", label: "ぬう", shortcut: "S", icon: CutIcon },
+]
+
 const MODES: readonly { value: Mode; label: string }[] = [
 	{ value: "draw", label: "製図" },
 	{ value: "assemble", label: "組み立て" },
 	{ value: "finished", label: "出来上がり" },
+	{ value: "wear", label: "着てみる" },
 	{ value: "cutting", label: "裁ち方" },
 ]
 
@@ -58,6 +75,13 @@ export function EditorPage() {
 	useHotkey("Mod+Shift+Z", () => editor.redo(), { ignoreInputs: true })
 	useHotkey("V", () => editor.setTool("select"), { ignoreInputs: true })
 	useHotkey("P", () => editor.setTool("pen"), { ignoreInputs: true })
+	useHotkey(
+		"S",
+		() => {
+			if (editor.mode === "assemble") editor.setTool("sew")
+		},
+		{ ignoreInputs: true },
+	)
 
 	// Everyone reaches for these two before reading anything, so they have to work.
 	useHotkey("Escape", () => {
@@ -131,6 +155,28 @@ export function EditorPage() {
 						</Button>
 					))}
 				</div>
+
+				{editor.mode === "assemble" ? (
+					<>
+						<Separator orientation="vertical" className="h-6" />
+
+						<div className="flex items-center gap-0.5">
+							{ASSEMBLE_TOOLS.map((entry) => (
+								<Button
+									key={entry.value}
+									variant={editor.tool === entry.value ? "default" : "ghost"}
+									size="sm"
+									className="h-8 gap-1.5 px-2 text-xs"
+									onClick={() => editor.setTool(entry.value)}
+									title={`${entry.label}（${entry.shortcut}）`}
+								>
+									<entry.icon className="size-4" />
+									{entry.label}
+								</Button>
+							))}
+						</div>
+					</>
+				) : null}
 
 				{editor.mode === "draw" ? (
 					<>
@@ -228,6 +274,15 @@ export function EditorPage() {
 					{editor.mode === "draw" ? <EditorCanvas editor={editor} /> : null}
 					{editor.mode === "assemble" ? <AssembleView editor={editor} /> : null}
 					{editor.mode === "finished" ? <FinishedView editor={editor} /> : null}
+					{editor.mode === "wear" ? (
+						<Suspense
+							fallback={
+								<p className="p-6 text-xs text-muted-foreground">{"3D を読み込んでいます…"}</p>
+							}
+						>
+							<WearView editor={editor} />
+						</Suspense>
+					) : null}
 					{editor.mode === "cutting" ? <CuttingView editor={editor} /> : null}
 				</main>
 

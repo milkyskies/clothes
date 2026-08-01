@@ -44,7 +44,7 @@ export function CuttingView(props: CuttingViewProps) {
 		<div className="flex h-full min-h-0">
 			<div
 				ref={containerRef}
-				className="relative h-full min-w-0 flex-1 touch-none overflow-hidden overscroll-none bg-background"
+				className="relative h-full min-w-0 flex-1 touch-none select-none overflow-hidden overscroll-none bg-background"
 			>
 				<svg
 					viewBox={view.viewBox}
