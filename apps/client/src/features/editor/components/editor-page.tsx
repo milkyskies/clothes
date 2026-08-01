@@ -8,7 +8,8 @@ import { Button } from "@/features/shared/ui/button"
 import { Input } from "@/features/shared/ui/input"
 import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
-import { addRectanglePanel } from "@/lib/drafting/edit"
+import { removeSeam } from "@/lib/drafting/assemble"
+import { addRectanglePanel, deletePanel, deleteVertex } from "@/lib/drafting/edit"
 import { jinbeiTop } from "@/lib/drafting/templates/jinbei"
 import { localFileStore } from "@/services/files/local-file-store"
 import { type Mode, type Tool, useEditor } from "../use-editor"
@@ -57,6 +58,39 @@ export function EditorPage() {
 	useHotkey("Mod+Shift+Z", () => editor.redo(), { ignoreInputs: true })
 	useHotkey("V", () => editor.setTool("select"), { ignoreInputs: true })
 	useHotkey("P", () => editor.setTool("pen"), { ignoreInputs: true })
+
+	// Everyone reaches for these two before reading anything, so they have to work.
+	useHotkey("Escape", () => {
+		editor.setPending(undefined)
+		editor.select({})
+	})
+	useHotkey("Backspace", () => removeSelected(), { ignoreInputs: true })
+	useHotkey("Delete", () => removeSelected(), { ignoreInputs: true })
+
+	function removeSelected() {
+		const { selection } = editor
+
+		if (selection.seamId !== undefined) {
+			editor.apply(removeSeam(editor.draft, selection.seamId))
+			editor.select({})
+
+			return
+		}
+
+		if (selection.panelId === undefined) return
+
+		if (selection.vertexId !== undefined) {
+			editor.apply(deleteVertex(editor.draft, selection.panelId, selection.vertexId))
+			editor.select({ panelId: selection.panelId })
+
+			return
+		}
+
+		if (selection.edgeVertexId !== undefined) return
+
+		editor.apply(deletePanel(editor.draft, selection.panelId))
+		editor.select({})
+	}
 
 	function addRectangle() {
 		const created = addRectanglePanel(editor.draft, 4, 4, 30, 70)

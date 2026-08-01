@@ -7,6 +7,7 @@ import { type EdgeRef, findPanel, panelBounds, panelPath } from "@/lib/drafting/
 import type { Point } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import { assemble, type Placement } from "@/lib/drafting/layout"
+import { selectionActions } from "../actions"
 import { applyMatrix, edgeState, midOf, runPolyline, tidied } from "../assembled-geometry"
 import { useCanvasView } from "../use-canvas-view"
 import type { Editor } from "../use-editor"
@@ -14,6 +15,17 @@ import { ContextMenu, type MenuTarget } from "./context-menu"
 
 const FRAME_CM = 220
 const MARGIN = 20
+
+/**
+ * A click counts as landing on nothing when it hits the sheet behind everything.
+ * Comparing against the svg itself is not enough: that sheet is a real element
+ * and it is what actually receives the click.
+ */
+function hitBackground(event: ReactMouseEvent): boolean {
+	if (event.target === event.currentTarget) return true
+
+	return event.target instanceof Element && event.target.hasAttribute("data-canvas-background")
+}
 
 function pointsOf(points: readonly Point[]): string {
 	return points.map((entry) => `${entry.x},${entry.y}`).join(" ")
@@ -110,51 +122,24 @@ export function AssembleView(props: AssembleViewProps) {
 	}
 
 	function edgeMenu(edge: EdgeRef, event: ReactMouseEvent) {
-		const panel = findPanel(draft, edge.panelId)
-		const seams = draft.seams.filter(
-			(seam) => sameEdge(seam.a.edge, edge) || sameEdge(seam.b.edge, edge),
-		)
-
 		event.preventDefault()
 		props.editor.select({ panelId: edge.panelId, edgeVertexId: edge.vertexId })
+
+		const built = selectionActions({
+			...props.editor,
+			selection: { panelId: edge.panelId, edgeVertexId: edge.vertexId },
+		})
 
 		setMenu({
 			clientX: event.clientX,
 			clientY: event.clientY,
-			title: panel?.name ?? "辺",
-			items:
-				seams.length === 0
-					? [
-							{
-								label: "この辺から縫いはじめる",
-								icon: CutIcon,
-								onSelect: () => setPending(edge),
-							},
-						]
-					: seams.flatMap((seam) => [
-							{
-								label: `${seam.name} をほどく`,
-								icon: DeleteIcon,
-								danger: true,
-								onSelect: () => {
-									props.editor.apply(removeSeam(draft, seam.id))
-									props.editor.select({})
-								},
-							},
-							{
-								label: `${seam.name} の向きを反転`,
-								icon: CutIcon,
-								onSelect: () => props.editor.apply(flipSeam(draft, seam.id)),
-							},
-							{
-								label: seam.lie === "fold" ? `${seam.name} を開く` : `${seam.name} を折る`,
-								icon: CutIcon,
-								onSelect: () =>
-									props.editor.apply(
-										setSeamLie(draft, seam.id, seam.lie === "fold" ? "open" : "fold"),
-									),
-							},
-						]),
+			title: built.title,
+			items: built.actions.map((action) => ({
+				label: action.label,
+				icon: action.icon,
+				danger: action.danger,
+				onSelect: action.run,
+			})),
 		})
 	}
 
@@ -196,7 +181,7 @@ export function AssembleView(props: AssembleViewProps) {
 				aria-label="組み立て"
 				className="h-full w-full cursor-grab"
 				onClick={(event) => {
-					if (event.target !== event.currentTarget) return
+					if (!hitBackground(event)) return
 
 					props.editor.select({})
 					setPending(undefined)
