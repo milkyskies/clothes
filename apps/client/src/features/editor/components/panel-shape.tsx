@@ -209,6 +209,7 @@ export function PanelShape(props: PanelShapeProps) {
 
 	return (
 		<g transform={`translate(${props.panel.x} ${props.panel.y})`}>
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: keyboard reach is provided by the panel list in the inspector. */}
 			<path
 				d={pathToSvg(path)}
 				fill={selected ? "var(--color-accent)" : "var(--color-muted)"}
@@ -226,6 +227,11 @@ export function PanelShape(props: PanelShapeProps) {
 							}
 						: undefined
 				}
+				onContextMenu={(event) => {
+					event.preventDefault()
+					props.onSelectPanel()
+					props.onMenu("panel", props.panel.id, event.clientX, event.clientY)
+				}}
 			/>
 
 			{gapSegments.map((gap) => (

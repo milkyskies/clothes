@@ -87,83 +87,6 @@ export function deleteVertex(document: Document, panelId: string, vertexId: stri
 	})
 }
 
-/**
- * A cubic whose handles are pushed `d` sideways bulges by three quarters of `d`
- * at its middle, so the depth a draft states is scaled by 4/3 to get there.
- */
-const BOW_TO_HANDLE = 4 / 3
-
-function edgeEnds(panel: Panel, vertexId: string): { from: Vertex; to: Vertex } | undefined {
-	const index = vertexIndex(panel, vertexId)
-
-	if (index < 0) return undefined
-
-	const from = panel.vertices[index]
-	const to = panel.vertices[(index + 1) % panel.vertices.length]
-
-	if (from === undefined || to === undefined) return undefined
-
-	return { from, to }
-}
-
-function intersectLines(
-	originA: Vertex,
-	towardA: Vertex,
-	originB: Vertex,
-	towardB: Vertex,
-): { x: number; y: number } | undefined {
-	const directionAx = towardA.x - originA.x
-	const directionAy = towardA.y - originA.y
-	const directionBx = towardB.x - originB.x
-	const directionBy = towardB.y - originB.y
-
-	const cross = directionAx * directionBy - directionAy * directionBx
-
-	if (Math.abs(cross) < 1e-9) return undefined
-
-	const travel =
-		((originB.x - originA.x) * directionBy - (originB.y - originA.y) * directionBx) / cross
-
-	return { x: originA.x + directionAx * travel, y: originA.y + directionAy * travel }
-}
-
-/**
- * The inverse of `roundCorner`: puts back the sharp corner a curve was cut from,
- * by extending the two neighbouring edges until they meet.
- *
- * Falls back to dropping the handles when those edges run parallel and therefore
- * never meet.
- */
-export function sharpenCorner(document: Document, panelId: string, vertexId: string): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
-
-	if (panel === undefined) return document
-
-	const count = panel.vertices.length
-	const index = vertexIndex(panel, vertexId)
-
-	if (index < 0 || count < 4) return setEdgeBow(document, panelId, vertexId, 0)
-
-	const start = panel.vertices[index]
-	const end = panel.vertices[(index + 1) % count]
-	const before = panel.vertices[(index - 1 + count) % count]
-	const after = panel.vertices[(index + 2) % count]
-
-	if (start === undefined || end === undefined || before === undefined || after === undefined) {
-		return document
-	}
-
-	const corner = intersectLines(before, start, after, end)
-
-	if (corner === undefined) return setEdgeBow(document, panelId, vertexId, 0)
-
-	const vertices = [...panel.vertices]
-
-	vertices.splice(index, 2, { id: nextId("v"), x: corner.x, y: corner.y })
-
-	return replacePanel(document, { ...panel, vertices })
-}
-
 /** How deep the edge leaving this vertex bows, in centimetres. */
 export function edgeBow(panel: Panel, vertexId: string): number {
 	return panel.vertices.find((entry) => entry.id === vertexId)?.bow ?? 0
@@ -290,6 +213,63 @@ export function roundCorner(
 	const vertices = [...panel.vertices]
 
 	vertices.splice(index, 1, startVertex, endVertex)
+
+	return replacePanel(document, { ...panel, vertices })
+}
+
+function intersectLines(
+	originA: Vertex,
+	towardA: Vertex,
+	originB: Vertex,
+	towardB: Vertex,
+): { x: number; y: number } | undefined {
+	const directionAx = towardA.x - originA.x
+	const directionAy = towardA.y - originA.y
+	const directionBx = towardB.x - originB.x
+	const directionBy = towardB.y - originB.y
+
+	const cross = directionAx * directionBy - directionAy * directionBx
+
+	if (Math.abs(cross) < 1e-9) return undefined
+
+	const travel =
+		((originB.x - originA.x) * directionBy - (originB.y - originA.y) * directionBx) / cross
+
+	return { x: originA.x + directionAx * travel, y: originA.y + directionAy * travel }
+}
+
+/**
+ * The inverse of `roundCorner`: puts back the sharp corner a curve was cut from,
+ * by extending the two neighbouring edges until they meet.
+ *
+ * Falls back to straightening when those edges run parallel and never meet.
+ */
+export function sharpenCorner(document: Document, panelId: string, vertexId: string): Document {
+	const panel = document.panels.find((entry) => entry.id === panelId)
+
+	if (panel === undefined) return document
+
+	const count = panel.vertices.length
+	const index = vertexIndex(panel, vertexId)
+
+	if (index < 0 || count < 4) return setEdgeBow(document, panelId, vertexId, 0)
+
+	const start = panel.vertices[index]
+	const end = panel.vertices[(index + 1) % count]
+	const before = panel.vertices[(index - 1 + count) % count]
+	const after = panel.vertices[(index + 2) % count]
+
+	if (start === undefined || end === undefined || before === undefined || after === undefined) {
+		return document
+	}
+
+	const corner = intersectLines(before, start, after, end)
+
+	if (corner === undefined) return setEdgeBow(document, panelId, vertexId, 0)
+
+	const vertices = [...panel.vertices]
+
+	vertices.splice(index, 2, { id: nextId("v"), x: corner.x, y: corner.y })
 
 	return replacePanel(document, { ...panel, vertices })
 }
