@@ -70,7 +70,7 @@ export function insertVertex(
 
 	if (source === undefined) return document
 
-	vertices[index] = { ...source, out: undefined, nextIn: undefined }
+	vertices[index] = { ...source, bow: undefined }
 	vertices.splice(index + 1, 0, { id: nextId("v"), x, y })
 
 	return replacePanel(document, { ...panel, vertices })
@@ -84,47 +84,6 @@ export function deleteVertex(document: Document, panelId: string, vertexId: stri
 	return replacePanel(document, {
 		...panel,
 		vertices: panel.vertices.filter((vertex) => vertex.id !== vertexId),
-	})
-}
-
-export function setHandle(
-	document: Document,
-	panelId: string,
-	vertexId: string,
-	side: "out" | "nextIn",
-	handle: { x: number; y: number } | undefined,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
-
-	if (panel === undefined) return document
-
-	return replacePanel(document, {
-		...panel,
-		vertices: panel.vertices.map((vertex) =>
-			vertex.id === vertexId ? { ...vertex, [side]: handle } : vertex,
-		),
-	})
-}
-
-export function isCurvedEdge(panel: Panel, vertexId: string): boolean {
-	const vertex = panel.vertices.find((entry) => entry.id === vertexId)
-
-	if (vertex === undefined) return false
-
-	return vertex.out !== undefined || vertex.nextIn !== undefined
-}
-
-/** Drops both handles on an edge, turning it back into a straight run. */
-function straightenEdge(document: Document, panelId: string, vertexId: string): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
-
-	if (panel === undefined) return document
-
-	return replacePanel(document, {
-		...panel,
-		vertices: panel.vertices.map((vertex) =>
-			vertex.id === vertexId ? { ...vertex, out: undefined, nextIn: undefined } : vertex,
-		),
 	})
 }
 
@@ -145,65 +104,6 @@ function edgeEnds(panel: Panel, vertexId: string): { from: Vertex; to: Vertex } 
 	if (from === undefined || to === undefined) return undefined
 
 	return { from, to }
-}
-
-/** How deep an edge currently bows, in centimetres, signed left of its direction. */
-export function edgeBow(panel: Panel, vertexId: string): number {
-	const ends = edgeEnds(panel, vertexId)
-
-	if (ends === undefined || ends.from.out === undefined) return 0
-
-	const spanX = ends.to.x - ends.from.x
-	const spanY = ends.to.y - ends.from.y
-	const span = Math.hypot(spanX, spanY)
-
-	if (span === 0) return 0
-
-	const sideways = (ends.from.out.x * -spanY + ends.from.out.y * spanX) / span
-
-	return Number((sideways / BOW_TO_HANDLE).toFixed(2))
-}
-
-/** Bows an edge by the given depth at its middle. Zero returns it to a straight run. */
-export function setEdgeBow(
-	document: Document,
-	panelId: string,
-	vertexId: string,
-	bow: number,
-): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
-
-	if (panel === undefined) return document
-
-	if (bow === 0) return straightenEdge(document, panelId, vertexId)
-
-	const ends = edgeEnds(panel, vertexId)
-
-	if (ends === undefined) return document
-
-	const spanX = ends.to.x - ends.from.x
-	const spanY = ends.to.y - ends.from.y
-	const span = Math.hypot(spanX, spanY)
-
-	if (span === 0) return document
-
-	const alongX = spanX / 3
-	const alongY = spanY / 3
-	const sideX = (-spanY / span) * bow * BOW_TO_HANDLE
-	const sideY = (spanX / span) * bow * BOW_TO_HANDLE
-
-	return replacePanel(document, {
-		...panel,
-		vertices: panel.vertices.map((vertex) =>
-			vertex.id === vertexId
-				? {
-						...vertex,
-						out: { x: alongX + sideX, y: alongY + sideY },
-						nextIn: { x: -alongX + sideX, y: -alongY + sideY },
-					}
-				: vertex,
-		),
-	})
 }
 
 function intersectLines(
@@ -242,7 +142,7 @@ export function sharpenCorner(document: Document, panelId: string, vertexId: str
 	const count = panel.vertices.length
 	const index = vertexIndex(panel, vertexId)
 
-	if (index < 0 || count < 4) return straightenEdge(document, panelId, vertexId)
+	if (index < 0 || count < 4) return setEdgeBow(document, panelId, vertexId, 0)
 
 	const start = panel.vertices[index]
 	const end = panel.vertices[(index + 1) % count]
@@ -255,13 +155,41 @@ export function sharpenCorner(document: Document, panelId: string, vertexId: str
 
 	const corner = intersectLines(before, start, after, end)
 
-	if (corner === undefined) return straightenEdge(document, panelId, vertexId)
+	if (corner === undefined) return setEdgeBow(document, panelId, vertexId, 0)
 
 	const vertices = [...panel.vertices]
 
 	vertices.splice(index, 2, { id: nextId("v"), x: corner.x, y: corner.y })
 
 	return replacePanel(document, { ...panel, vertices })
+}
+
+/** How deep the edge leaving this vertex bows, in centimetres. */
+export function edgeBow(panel: Panel, vertexId: string): number {
+	return panel.vertices.find((entry) => entry.id === vertexId)?.bow ?? 0
+}
+
+export function isCurvedEdge(panel: Panel, vertexId: string): boolean {
+	return edgeBow(panel, vertexId) !== 0
+}
+
+/** Sets how deep an edge bows. Zero returns it to a straight run. */
+export function setEdgeBow(
+	document: Document,
+	panelId: string,
+	vertexId: string,
+	bow: number,
+): Document {
+	const panel = document.panels.find((entry) => entry.id === panelId)
+
+	if (panel === undefined) return document
+
+	return replacePanel(document, {
+		...panel,
+		vertices: panel.vertices.map((vertex) =>
+			vertex.id === vertexId ? { ...vertex, bow: bow === 0 ? undefined : bow } : vertex,
+		),
+	})
 }
 
 const CIRCULAR_TENSION = 0.552
@@ -291,11 +219,13 @@ export function roundCorner(
 
 	if (index < 0 || count < 3) return document
 
-	const corner = panel.vertices[index]
+	const cornerVertex = panel.vertices[index]
 	const previous = panel.vertices[(index - 1 + count) % count]
 	const next = panel.vertices[(index + 1) % count]
 
-	if (corner === undefined || previous === undefined || next === undefined) return document
+	if (cornerVertex === undefined || previous === undefined || next === undefined) return document
+
+	const corner = { x: cornerVertex.x, y: cornerVertex.y }
 
 	const incoming = Math.hypot(corner.x - previous.x, corner.y - previous.y)
 	const outgoing = Math.hypot(next.x - corner.x, next.y - corner.y)
@@ -310,12 +240,18 @@ export function roundCorner(
 	const start = { x: corner.x - backX * before, y: corner.y - backY * before }
 	const end = { x: corner.x + forwardX * after, y: corner.y + forwardY * after }
 
+	// The rounded run bows toward the corner it replaces, by the depth that a
+	// circular arc through those two setbacks would reach.
+	const chordX = end.x - start.x
+	const chordY = end.y - start.y
+	const chord = Math.hypot(chordX, chordY)
+	const toCorner = (-chordY * (corner.x - start.x) + chordX * (corner.y - start.y)) / (chord || 1)
+
 	const startVertex: Vertex = {
 		id: nextId("v"),
 		x: start.x,
 		y: start.y,
-		out: { x: backX * before * tension, y: backY * before * tension },
-		nextIn: { x: -forwardX * after * tension, y: -forwardY * after * tension },
+		bow: Number((toCorner * tension).toFixed(3)),
 	}
 
 	const endVertex: Vertex = { id: nextId("v"), x: end.x, y: end.y }

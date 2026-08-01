@@ -10,10 +10,14 @@ export interface Vertex {
 	readonly id: string
 	readonly x: number
 	readonly y: number
-	/** Control point leaving this vertex, relative to it. Absent means the edge is straight. */
-	readonly out?: Point
-	/** Control point arriving at the next vertex, relative to that vertex. */
-	readonly nextIn?: Point
+	/**
+	 * How deep the edge leaving this vertex bows, in centimetres, to the left of
+	 * its direction. Absent or zero is a straight run.
+	 *
+	 * A draft states a curve as a depth — the 0.7 written against a 衿ぐり — so
+	 * that is what is stored, and the control points are worked out from it.
+	 */
+	readonly bow?: number
 }
 
 export interface Panel {
@@ -112,6 +116,12 @@ export function vertexPoint(vertex: Vertex): Point {
 	return point(vertex.x, vertex.y)
 }
 
+/**
+ * A cubic whose control points are pushed `d` sideways bulges by three quarters
+ * of `d` at its middle, so a stated depth is scaled by 4/3 to reach it.
+ */
+const BOW_TO_HANDLE = 4 / 3
+
 /** Builds the closed outline for a panel, keyed so each segment carries its starting vertex id. */
 export function panelPath(panel: Panel): Path {
 	const first = panel.vertices[0]
@@ -121,18 +131,25 @@ export function panelPath(panel: Panel): Path {
 	const segments = panel.vertices.map((vertex, index) => {
 		const target = panel.vertices[(index + 1) % panel.vertices.length] ?? first
 		const to = vertexPoint(target)
+		const bow = vertex.bow ?? 0
 
-		if (vertex.out === undefined && vertex.nextIn === undefined) return line(vertex.id, to)
+		if (bow === 0) return line(vertex.id, to)
 
 		const from = vertexPoint(vertex)
-		const outward = vertex.out ?? { x: 0, y: 0 }
-		const inward = vertex.nextIn ?? { x: 0, y: 0 }
+		const spanX = to.x - from.x
+		const spanY = to.y - from.y
+		const span = Math.hypot(spanX, spanY)
+
+		if (span === 0) return line(vertex.id, to)
+
+		const sideX = (-spanY / span) * bow * BOW_TO_HANDLE
+		const sideY = (spanX / span) * bow * BOW_TO_HANDLE
 
 		return curve(
 			vertex.id,
 			to,
-			point(from.x + outward.x, from.y + outward.y),
-			point(to.x + inward.x, to.y + inward.y),
+			point(from.x + spanX / 3 + sideX, from.y + spanY / 3 + sideY),
+			point(to.x - spanX / 3 + sideX, to.y - spanY / 3 + sideY),
 		)
 	})
 

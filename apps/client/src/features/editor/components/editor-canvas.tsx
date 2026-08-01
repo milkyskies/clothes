@@ -20,7 +20,6 @@ import {
 	roundCorner,
 	setEdgeBow,
 	setFoldEdge,
-	setHandle,
 	sharpenCorner,
 } from "@/lib/drafting/edit"
 import { useCanvasView } from "../use-canvas-view"
@@ -430,9 +429,9 @@ export function EditorCanvas(props: EditorCanvasProps) {
 											!done,
 										)
 									}
-									onMoveHandle={(vertexId, side, x, y, done) =>
+									onSetBow={(vertexId, bow, done) =>
 										props.editor.apply(
-											setHandle(props.editor.document, panel.id, vertexId, side, { x, y }),
+											setEdgeBow(props.editor.document, panel.id, vertexId, bow),
 											!done,
 										)
 									}
