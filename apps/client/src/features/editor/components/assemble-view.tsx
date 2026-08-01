@@ -1,13 +1,16 @@
-import { useMemo, useRef, useState } from "react"
-import { addSeam } from "@/lib/drafting/assemble"
-import { edgeLength, sameEdge } from "@/lib/drafting/assembly"
-import { type EdgeRef, findPanel, panelPath } from "@/lib/drafting/draft"
+import { type MouseEvent as ReactMouseEvent, useMemo, useRef, useState } from "react"
+import { CutIcon } from "@/features/shared/icons/cut-icon"
+import { DeleteIcon } from "@/features/shared/icons/delete-icon"
+import { addSeam, flipSeam, removeSeam, setSeamLie } from "@/lib/drafting/assemble"
+import { edgeLength, sameEdge, seamRunsOn } from "@/lib/drafting/assembly"
+import { type EdgeRef, findPanel, panelBounds, panelPath } from "@/lib/drafting/draft"
 import type { Point } from "@/lib/drafting/geometry/path"
 import { pathToSvg } from "@/lib/drafting/geometry/svg"
 import { assemble, type Placement } from "@/lib/drafting/layout"
-import { edgeState, midOf, runPolyline, tidied } from "../assembled-geometry"
+import { applyMatrix, edgeState, midOf, runPolyline, tidied } from "../assembled-geometry"
 import { useCanvasView } from "../use-canvas-view"
 import type { Editor } from "../use-editor"
+import { ContextMenu, type MenuTarget } from "./context-menu"
 
 const FRAME_CM = 220
 const MARGIN = 20
@@ -31,7 +34,11 @@ interface AssembleViewProps {
  */
 export function AssembleView(props: AssembleViewProps) {
 	const containerRef = useRef<HTMLDivElement>(null)
-	const [pending, setPending] = useState<EdgeRef | undefined>(undefined)
+	const [hovered, setHovered] = useState<EdgeRef | undefined>(undefined)
+	const [menu, setMenu] = useState<MenuTarget | undefined>(undefined)
+
+	const pending = props.editor.pending
+	const setPending = props.editor.setPending
 
 	const view = useCanvasView(containerRef, {
 		width: FRAME_CM,
@@ -74,6 +81,81 @@ export function AssembleView(props: AssembleViewProps) {
 
 		props.editor.apply(addSeam(draft, pending, edge))
 		setPending(undefined)
+	}
+
+	function labelOf(placement: Placement) {
+		const panel = findPanel(draft, placement.panelId)
+
+		if (panel === undefined) return null
+
+		const bounds = panelBounds(panel)
+		const middle = applyMatrix(placement.matrix, {
+			x: panel.x + bounds.minX + bounds.width / 2,
+			y: panel.y + bounds.minY + bounds.height / 2,
+		})
+
+		return (
+			<text
+				x={middle.x}
+				y={middle.y}
+				textAnchor="middle"
+				dominantBaseline="central"
+				fontSize={view.screen(12)}
+				fill="var(--color-muted-foreground)"
+				pointerEvents="none"
+			>
+				{panel.name}
+			</text>
+		)
+	}
+
+	function edgeMenu(edge: EdgeRef, event: ReactMouseEvent) {
+		const panel = findPanel(draft, edge.panelId)
+		const seams = draft.seams.filter(
+			(seam) => sameEdge(seam.a.edge, edge) || sameEdge(seam.b.edge, edge),
+		)
+
+		event.preventDefault()
+		props.editor.select({ panelId: edge.panelId, edgeVertexId: edge.vertexId })
+
+		setMenu({
+			clientX: event.clientX,
+			clientY: event.clientY,
+			title: panel?.name ?? "辺",
+			items:
+				seams.length === 0
+					? [
+							{
+								label: "この辺から縫いはじめる",
+								icon: CutIcon,
+								onSelect: () => setPending(edge),
+							},
+						]
+					: seams.flatMap((seam) => [
+							{
+								label: `${seam.name} をほどく`,
+								icon: DeleteIcon,
+								danger: true,
+								onSelect: () => {
+									props.editor.apply(removeSeam(draft, seam.id))
+									props.editor.select({})
+								},
+							},
+							{
+								label: `${seam.name} の向きを反転`,
+								icon: CutIcon,
+								onSelect: () => props.editor.apply(flipSeam(draft, seam.id)),
+							},
+							{
+								label: seam.lie === "fold" ? `${seam.name} を開く` : `${seam.name} を折る`,
+								icon: CutIcon,
+								onSelect: () =>
+									props.editor.apply(
+										setSeamLie(draft, seam.id, seam.lie === "fold" ? "open" : "fold"),
+									),
+							},
+						]),
+		})
 	}
 
 	function edgesOf(placement: Placement) {
@@ -148,9 +230,12 @@ export function AssembleView(props: AssembleViewProps) {
 								/>
 							</g>
 
+							{labelOf(placement)}
+
 							{edgesOf(placement).map((entry) => {
 								const held = pending !== undefined && sameEdge(pending, entry.edge)
 								const picked = chosen !== undefined && sameEdge(chosen, entry.edge)
+								const under = hovered !== undefined && sameEdge(hovered, entry.edge)
 
 								return (
 									<g key={entry.edge.vertexId}>
@@ -179,14 +264,14 @@ export function AssembleView(props: AssembleViewProps) {
 											/>
 										))}
 
-										{held || picked ? (
+										{held || picked || under ? (
 											<polyline
 												points={pointsOf(entry.whole)}
 												fill="none"
 												stroke={held ? "var(--color-ring)" : "var(--color-foreground)"}
 												strokeWidth={view.screen(held ? 5 : 3.5)}
 												strokeLinecap="round"
-												opacity={held ? 0.9 : 0.4}
+												opacity={held ? 0.9 : picked ? 0.4 : 0.2}
 												pointerEvents="none"
 											/>
 										) : null}
@@ -201,10 +286,17 @@ export function AssembleView(props: AssembleViewProps) {
 											strokeLinecap="round"
 											pointerEvents="stroke"
 											className="cursor-pointer"
+											onPointerEnter={() => setHovered(entry.edge)}
+											onPointerLeave={() =>
+												setHovered((held) =>
+													held !== undefined && sameEdge(held, entry.edge) ? undefined : held,
+												)
+											}
 											onClick={(event) => {
 												event.stopPropagation()
 												choose(entry.edge)
 											}}
+											onContextMenu={(event) => edgeMenu(entry.edge, event)}
 										/>
 									</g>
 								)
@@ -254,11 +346,9 @@ export function AssembleView(props: AssembleViewProps) {
 				})}
 			</svg>
 
-			<p className="pointer-events-none absolute bottom-3 left-3 text-xs text-muted-foreground">
-				{pending === undefined
-					? "赤いふちがまだ縫われていないところです。辺を2つ続けて押すと縫い合わせます。"
-					: `${findPanel(draft, pending.panelId)?.name ?? ""}の辺を選びました。合わせる辺を押してください。`}
-			</p>
+			{menu === undefined ? null : (
+				<ContextMenu target={menu} onDismiss={() => setMenu(undefined)} />
+			)}
 
 			{assembly.loose.length === 0 ? null : (
 				<p className="pointer-events-none absolute top-3 left-3 text-xs text-muted-foreground">

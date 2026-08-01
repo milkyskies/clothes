@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import type { Draft } from "@/lib/drafting/draft"
+import type { Draft, EdgeRef } from "@/lib/drafting/draft"
 
 export type Tool = "select" | "pen" | "rectangle"
 
@@ -24,12 +24,15 @@ export interface Editor {
 	readonly mode: Mode
 	readonly tool: Tool
 	readonly selection: Selection
+	/** The edge waiting for a partner to be sewn to, while 組み立て is mid-gesture. */
+	readonly pending: EdgeRef | undefined
 	readonly snap: number
 	readonly canUndo: boolean
 	readonly canRedo: boolean
 	readonly setMode: (mode: Mode) => void
 	readonly setTool: (tool: Tool) => void
 	readonly select: (selection: Selection) => void
+	readonly setPending: (edge: EdgeRef | undefined) => void
 	readonly setSnap: (snap: number) => void
 	/** `coalesce` keeps a drag as a single history entry by replacing the top of the stack. */
 	readonly apply: (next: Draft, coalesce?: boolean) => void
@@ -53,6 +56,7 @@ export function useEditor(initial: Draft): Editor {
 	const [mode, setModeState] = useState<Mode>("draw")
 	const [tool, setTool] = useState<Tool>("select")
 	const [selection, setSelection] = useState<Selection>({})
+	const [pending, setPending] = useState<EdgeRef | undefined>(undefined)
 	const [snap, setSnap] = useState(0.5)
 
 	// Selections do not carry across: a point means nothing while assembling, and
@@ -60,6 +64,7 @@ export function useEditor(initial: Draft): Editor {
 	const setMode = useCallback((next: Mode) => {
 		setModeState(next)
 		setSelection({})
+		setPending(undefined)
 		setTool("select")
 	}, [])
 
@@ -115,12 +120,14 @@ export function useEditor(initial: Draft): Editor {
 			mode,
 			tool,
 			selection,
+			pending,
 			snap,
 			canUndo: past.length > 0,
 			canRedo: future.length > 0,
 			setMode,
 			setTool,
 			select: setSelection,
+			setPending,
 			setSnap,
 			apply,
 			load,
@@ -133,6 +140,7 @@ export function useEditor(initial: Draft): Editor {
 			load,
 			mode,
 			past.length,
+			pending,
 			present,
 			redo,
 			selection,

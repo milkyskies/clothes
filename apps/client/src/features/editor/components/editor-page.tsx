@@ -19,6 +19,7 @@ import { CuttingView } from "./cutting-view"
 import { EditorCanvas } from "./editor-canvas"
 import { FileBar } from "./file-bar"
 import { FinishedView } from "./finished-view"
+import { HintBar } from "./hint-bar"
 import { Inspector } from "./inspector"
 import { SeamInspector } from "./seam-inspector"
 
@@ -40,13 +41,6 @@ const MODES: readonly { value: Mode; label: string }[] = [
 	{ value: "finished", label: "出来上がり" },
 	{ value: "cutting", label: "裁ち方" },
 ]
-
-const HINTS: Record<Mode, string> = {
-	draw: "",
-	assemble: "",
-	finished: "縫い方どおりに開いた形です",
-	cutting: "生地の上に置いた形と、買う長さです",
-}
 
 export function EditorPage() {
 	const editor = useEditor(jinbeiTop())
@@ -133,9 +127,7 @@ export function EditorPage() {
 							</Button>
 						</div>
 					</>
-				) : (
-					<span className="text-xs text-muted-foreground">{HINTS[editor.mode]}</span>
-				)}
+				) : null}
 
 				<Separator orientation="vertical" className="h-6" />
 
@@ -177,6 +169,8 @@ export function EditorPage() {
 					<span>{"cm"}</span>
 				</Label>
 			</div>
+
+			<HintBar editor={editor} />
 
 			{files.recovery === undefined ? null : (
 				<div className="flex shrink-0 items-center gap-3 border-b bg-muted/60 px-3 py-2 text-xs">

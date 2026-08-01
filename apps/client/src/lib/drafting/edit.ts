@@ -1,5 +1,8 @@
 import type { Draft, Panel, Vertex } from "./draft"
-import { vertexIndex } from "./draft"
+import { findPanel, panelBounds, vertexIndex } from "./draft"
+
+/** How close to an extreme a point has to be to count as sitting on that edge. */
+const EDGE_EPSILON = 0.01
 
 let counter = 0
 
@@ -378,4 +381,33 @@ export function deletePanel(draft: Draft, panelId: string): Draft {
 		stitches: draft.stitches.filter((stitch) => stitch.run.edge.panelId !== panelId),
 		annotations: draft.annotations.filter((annotation) => annotation.run.edge.panelId !== panelId),
 	}
+}
+
+/**
+ * Changes how big a piece is by moving the far edges out, not by scaling it.
+ *
+ * Lengthening a 身頃 means the 裾 goes down while the 打ち合わせ stays where it was
+ * measured from the shoulder. Scaling the whole outline would drag every
+ * feature with it, which is never what a longer garment means.
+ */
+export function stretchPanel(draft: Draft, panelId: string, width: number, height: number): Draft {
+	const panel = findPanel(draft, panelId)
+
+	if (panel === undefined) return draft
+
+	const bounds = panelBounds(panel)
+
+	if (bounds.width <= 0 || bounds.height <= 0) return draft
+	if (width <= 0 || height <= 0) return draft
+
+	const acrossBy = width - bounds.width
+	const alongBy = height - bounds.height
+
+	const moved = panel.vertices.map((vertex) => ({
+		...vertex,
+		x: vertex.x >= bounds.maxX - EDGE_EPSILON ? vertex.x + acrossBy : vertex.x,
+		y: vertex.y >= bounds.maxY - EDGE_EPSILON ? vertex.y + alongBy : vertex.y,
+	}))
+
+	return replacePanel(draft, { ...panel, vertices: moved })
 }

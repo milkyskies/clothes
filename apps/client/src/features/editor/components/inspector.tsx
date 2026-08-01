@@ -2,13 +2,14 @@ import { Input } from "@/features/shared/ui/input"
 import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
 import { edgeLength } from "@/lib/drafting/assembly"
-import { findPanel, findVertex } from "@/lib/drafting/draft"
+import { findPanel, findVertex, panelBounds } from "@/lib/drafting/draft"
 import {
 	edgeBow,
 	edgeBowAt,
 	moveVertex,
 	setEdgeBow,
 	setEdgeBowAt,
+	stretchPanel,
 	updatePanel,
 } from "@/lib/drafting/edit"
 import type { Editor } from "../use-editor"
@@ -91,7 +92,9 @@ export function Inspector(props: InspectorProps) {
 								}`}
 							>
 								<span>{entry.name}</span>
-								<span className="tnum text-xs text-muted-foreground">{`${entry.quantity}枚`}</span>
+								<span className="tnum text-xs text-muted-foreground">
+									{`${panelBounds(entry).width.toFixed(0)}×${panelBounds(entry).height.toFixed(0)}`}
+								</span>
 							</button>
 						</li>
 					))}
@@ -172,6 +175,28 @@ export function Inspector(props: InspectorProps) {
 											props.editor.apply(updatePanel(draft, panel.id, { name: event.target.value }))
 										}
 										className="h-7 w-32 text-sm"
+									/>
+								</Field>
+
+								<Field label="よこ">
+									<NumberField
+										value={Number(panelBounds(panel).width.toFixed(1))}
+										onChange={(next) =>
+											props.editor.apply(
+												stretchPanel(draft, panel.id, next, panelBounds(panel).height),
+											)
+										}
+									/>
+								</Field>
+
+								<Field label="たて">
+									<NumberField
+										value={Number(panelBounds(panel).height.toFixed(1))}
+										onChange={(next) =>
+											props.editor.apply(
+												stretchPanel(draft, panel.id, panelBounds(panel).width, next),
+											)
+										}
 									/>
 								</Field>
 
