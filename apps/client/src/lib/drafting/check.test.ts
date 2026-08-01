@@ -85,6 +85,23 @@ describe("checkDraft", () => {
 	})
 })
 
+describe("cloth checks", () => {
+	it("reports_a_piece_that_will_not_fit_across_the_cloth", () => {
+		const narrow: Draft = { ...base, fabric: { name: "反物", width: 20 } }
+		const reported = checkDraft(narrow).find((entry) => entry.id === "too-wide-front")
+
+		expect(reported?.severity).toBe("error")
+		expect(reported?.fix).toBe("cutting")
+	})
+
+	it("keeps_the_length_to_buy_in_front_of_the_maker", () => {
+		const reported = checkDraft(base).find((entry) => entry.id === "cloth")
+
+		expect(reported?.severity).toBe("info")
+		expect(reported?.title).toContain("1.40m")
+	})
+})
+
 describe("openingRings", () => {
 	it("measures_the_hem_and_the_neck_of_a_closed_tube_separately", () => {
 		const rings = openingRings(sewSides(base))

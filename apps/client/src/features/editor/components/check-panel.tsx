@@ -67,7 +67,7 @@ export function CheckPanel(props: CheckPanelProps) {
 	const shown = expanded ? results : results.slice(0, SHOWN)
 
 	function choose(result: CheckResult) {
-		props.editor.setMode(result.target.seamId === undefined ? "draw" : "assemble")
+		props.editor.setMode(result.fix)
 		props.editor.select(result.target)
 	}
 

@@ -1,5 +1,6 @@
 import { runLength } from "./assemble"
 import { edgeGaps, edgeLength, type Span, sameEdge } from "./assembly"
+import { cuttingLayout } from "./cutting"
 import type { Draft, EdgeRef, Panel } from "./draft"
 import { findPanel } from "./draft"
 
@@ -27,6 +28,8 @@ export interface CheckResult {
 	readonly title: string
 	readonly detail: string
 	readonly target: CheckTarget
+	/** Which view the thing at fault is worked on in. */
+	readonly fix: "draw" | "assemble" | "cutting"
 }
 
 interface BoundaryRun {
@@ -105,6 +108,7 @@ function seamChecks(draft: Draft): CheckResult[] {
 			title: `${seam.name}の長さが合いません`,
 			detail: `${panelName(draft, seam.a.edge.panelId)} ${round(a)}cm と ${panelName(draft, seam.b.edge.panelId)} ${round(b)}cm で、${round(difference)}cm ちがいます。`,
 			target: { seamId: seam.id },
+			fix: "assemble",
 		})
 	}
 
@@ -139,6 +143,7 @@ function overlapChecks(draft: Draft): CheckResult[] {
 				title: "同じところを2回縫っています",
 				detail: `${panelName(draft, first.run.edge.panelId)}の同じ辺を、${first.seam.name}と${second.seam.name}が ${round(shared)}cm 重ねて縫っています。`,
 				target: { seamId: first.seam.id },
+				fix: "assemble",
 			})
 		}
 	}
@@ -161,6 +166,7 @@ function detachedChecks(draft: Draft): CheckResult[] {
 			title: `${panel.name}がどこにも付いていません`,
 			detail: "組み立てモードで、この部品の辺を相手の辺と縫い合わせてください。",
 			target: { panelId: panel.id },
+			fix: "assemble" as const,
 		}))
 }
 
@@ -341,8 +347,42 @@ function ringChecks(draft: Draft): CheckResult[] {
 				first === undefined
 					? {}
 					: { panelId: first.edge.panelId, edgeVertexId: first.edge.vertexId },
+			fix: "draw" as const,
 		}
 	})
+}
+
+/**
+ * What the cloth itself says, which the drawing alone cannot.
+ *
+ * A piece wider than the bolt is not a mistake you can see by looking at the
+ * pieces, so it belongs here rather than only on the 裁ち方 screen.
+ */
+function clothChecks(draft: Draft): CheckResult[] {
+	const layout = cuttingLayout(draft)
+
+	const tooWide: CheckResult[] = layout.tooWide.map((piece) => ({
+		id: `too-wide-${piece.panelId}`,
+		severity: "error" as const,
+		title: `${piece.name}が生地より広いです`,
+		detail: `${piece.name}は ${piece.across}cm ありますが、生地の幅は ${layout.width}cm です。`,
+		target: { panelId: piece.panelId },
+		fix: "cutting" as const,
+	}))
+
+	if (layout.placements.length === 0) return tooWide
+
+	return [
+		...tooWide,
+		{
+			id: "cloth",
+			severity: "info" as const,
+			title: `生地 ${(layout.length / 100).toFixed(2)}m（幅 ${layout.width}cm）`,
+			detail: `${layout.placements.length}枚を並べて ${layout.length}cm、うち ${Math.round(layout.efficiency * 100)}% が部品になります。`,
+			target: {},
+			fix: "cutting" as const,
+		},
+	]
 }
 
 const ORDER: Record<Severity, number> = { error: 0, warn: 1, info: 2 }
@@ -358,6 +398,7 @@ export function checkDraft(draft: Draft): CheckResult[] {
 		...seamChecks(draft),
 		...overlapChecks(draft),
 		...detachedChecks(draft),
+		...clothChecks(draft),
 		...ringChecks(draft),
 	].sort((left, right) => ORDER[left.severity] - ORDER[right.severity])
 }

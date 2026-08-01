@@ -5,6 +5,7 @@ import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
 import { Button } from "@/features/shared/ui/button"
 import { Input } from "@/features/shared/ui/input"
 import { Separator } from "@/features/shared/ui/separator"
+import { TEMPLATES } from "@/lib/drafting/templates/catalogue"
 import type { Files } from "../use-files"
 
 function clockOf(at: number): string {
@@ -57,30 +58,39 @@ export function FileBar(props: FileBarProps) {
 
 			{listOpen ? (
 				<div className="absolute top-9 left-0 z-40 w-72 rounded-md border bg-popover p-1 shadow-md">
-					<div className="flex gap-1 p-1">
+					<div className="p-1">
+						<p className="px-1 pb-1 text-xs text-muted-foreground">{"型からはじめる"}</p>
+
+						{TEMPLATES.map((entry) => (
+							<Button
+								key={entry.id}
+								variant="ghost"
+								size="sm"
+								className="h-auto w-full justify-start px-2 py-1.5 text-left text-xs"
+								onClick={() => {
+									void props.files.create(entry.name, entry.build())
+									setListOpen(false)
+								}}
+							>
+								<RectangleIcon className="size-3.5 shrink-0" />
+								<span className="flex-1">
+									<span className="block">{entry.name}</span>
+									<span className="block text-muted-foreground">{entry.note}</span>
+								</span>
+							</Button>
+						))}
+
 						<Button
-							variant="outline"
+							variant="ghost"
 							size="sm"
-							className="h-7 flex-1 text-xs"
-							onClick={() => {
-								void props.files.create("名前のない型")
-								setListOpen(false)
-							}}
-						>
-							<RectangleIcon className="size-3.5" />
-							{"新規"}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-7 flex-1 text-xs"
+							className="h-7 w-full justify-start px-2 text-xs"
 							onClick={() => {
 								void props.files.saveAs(`${props.files.currentName}のコピー`)
 								setListOpen(false)
 							}}
 						>
 							<DuplicateIcon className="size-3.5" />
-							{"複製して保存"}
+							{"いまの型を複製して保存"}
 						</Button>
 					</div>
 

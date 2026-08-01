@@ -18,7 +18,7 @@ export interface Files {
 	readonly save: () => Promise<void>
 	readonly saveAs: (name: string) => Promise<void>
 	readonly open: (id: string) => Promise<void>
-	readonly create: (name: string) => Promise<void>
+	readonly create: (name: string, draft: Draft) => Promise<void>
 	readonly rename: (name: string) => void
 	readonly remove: (id: string) => Promise<void>
 	readonly restore: () => void
@@ -163,8 +163,8 @@ export function useFiles(options: FilesOptions): Files {
 	)
 
 	const create = useCallback(
-		async (fileName: string) => {
-			const record = fileFrom(jinbeiTop(), fileName, Date.now())
+		async (fileName: string, draft: Draft) => {
+			const record = fileFrom(draft, fileName, Date.now())
 
 			await options.store.write(record)
 			setList(await options.store.list())
@@ -186,7 +186,7 @@ export function useFiles(options: FilesOptions): Files {
 			const next = remaining[0]
 
 			if (next === undefined) {
-				await create("名前のない型")
+				await create("名前のない型", jinbeiTop())
 				return
 			}
 
