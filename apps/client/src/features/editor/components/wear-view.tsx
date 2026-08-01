@@ -138,8 +138,11 @@ interface ClothProps {
  * particle to the pointer on a camera-facing plane while the rest of the cloth
  * keeps simulating around it — a tug, not a teleport.
  */
+const FIXED_STEP = 1 / 60
+
 function Cloth(props: ClothProps) {
 	const elapsed = useRef(0)
+	const backlog = useRef(0)
 	const grab = useRef<{ index: number; plane: Plane } | undefined>(undefined)
 	const target = useRef<Grab | undefined>(undefined)
 
@@ -210,18 +213,19 @@ function Cloth(props: ClothProps) {
 
 		if (!props.playing && target.current === undefined) return
 
-		// Big tab-switch deltas are clamped so the first frame back cannot fling
-		// the cloth; the simulation is only stable at frame-sized steps.
-		elapsed.current += Math.min(delta, 1 / 30)
+		// The simulation always advances in fixed steps, however ragged the
+		// browser's frames are. Variable deltas gave the settling zip fewer solver
+		// passes per simulated second on slow frames, and whether the arms ended
+		// up inside the sleeves depended on load jank. The backlog cap just slows
+		// the cloth down under sustained jank instead of spiralling.
+		backlog.current = Math.min(backlog.current + delta, 0.1)
 
-		step(
-			props.mesh,
-			props.state,
-			props.capsules,
-			Math.min(delta, 1 / 30),
-			elapsed.current,
-			target.current,
-		)
+		while (backlog.current >= FIXED_STEP) {
+			backlog.current -= FIXED_STEP
+			elapsed.current += FIXED_STEP
+
+			step(props.mesh, props.state, props.capsules, FIXED_STEP, elapsed.current, target.current)
+		}
 
 		const attribute = geometry.getAttribute("position")
 
