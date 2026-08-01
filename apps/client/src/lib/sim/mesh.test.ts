@@ -56,9 +56,7 @@ describe("fastenings", () => {
 		const untied = { ...jinbeiTop(), fastenings: [] }
 		const tied = jinbeiTop()
 
-		const meshUntied = buildClothMesh(untied, 140)
-		const meshTied = buildClothMesh(tied, 140)
-
-		expect(meshTied.seams.length).toBeGreaterThan(meshUntied.seams.length)
+		expect(buildClothMesh(untied, 140).ties).toHaveLength(0)
+		expect(buildClothMesh(tied, 140).ties.length).toBeGreaterThan(0)
 	})
 })
