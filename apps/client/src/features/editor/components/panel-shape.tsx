@@ -10,10 +10,9 @@ import { useSvgPointDrag } from "../use-svg-point-drag"
 interface PanelShapeProps {
 	document: Document
 	panel: Panel
-	unit: number
+	screen: (pixels: number) => number
 	selection: Selection
 	interactive: boolean
-	labelSize: number
 	onSelectPanel: () => void
 	onSelectEdge: (vertexId: string) => void
 	onMovePanel: (x: number, y: number, done: boolean) => void
@@ -163,7 +162,7 @@ export function PanelShape(props: PanelShapeProps) {
 		const awayX = normalX * outward
 		const awayY = normalY * outward
 
-		const standoff = props.labelSize * 1.2
+		const standoff = props.screen(14)
 
 		return [
 			{
@@ -215,7 +214,7 @@ export function PanelShape(props: PanelShapeProps) {
 				fill={selected ? "var(--color-accent)" : "var(--color-muted)"}
 				fillOpacity={selected ? 0.45 : 0.2}
 				stroke="var(--color-foreground)"
-				strokeWidth={props.unit * (selected ? 0.28 : 0.2)}
+				strokeWidth={props.screen(selected ? 2 : 1.4)}
 				strokeLinejoin="round"
 				className={props.interactive ? "cursor-move" : undefined}
 				style={{ touchAction: "none" }}
@@ -235,7 +234,7 @@ export function PanelShape(props: PanelShapeProps) {
 					points={gap.points}
 					fill="none"
 					stroke="var(--color-background)"
-					strokeWidth={props.unit * 0.5}
+					strokeWidth={props.screen(3.5)}
 					pointerEvents="none"
 				/>
 			))}
@@ -246,9 +245,9 @@ export function PanelShape(props: PanelShapeProps) {
 					points={gap.points}
 					fill="none"
 					stroke="var(--color-fold)"
-					strokeWidth={props.unit * 0.34}
+					strokeWidth={props.screen(2.2)}
 					strokeLinecap="round"
-					strokeDasharray={`${props.unit * 0.1} ${props.unit * 0.9}`}
+					strokeDasharray={`${props.screen(0.8)} ${props.screen(6)}`}
 					pointerEvents="none"
 				/>
 			))}
@@ -263,7 +262,7 @@ export function PanelShape(props: PanelShapeProps) {
 							// Hit testing needs a genuinely painted stroke, so this is drawn rather than made transparent.
 							stroke="var(--color-foreground)"
 							strokeOpacity={0.001}
-							strokeWidth={props.labelSize * 1.3}
+							strokeWidth={props.screen(15)}
 							strokeLinecap="round"
 							pointerEvents="stroke"
 							className="cursor-pointer"
@@ -292,7 +291,7 @@ export function PanelShape(props: PanelShapeProps) {
 								points={edge.points}
 								fill="none"
 								stroke="var(--color-foreground)"
-								strokeWidth={props.unit * 0.6}
+								strokeWidth={props.screen(4)}
 								strokeLinecap="round"
 								opacity={0.35}
 								pointerEvents="none"
@@ -309,11 +308,11 @@ export function PanelShape(props: PanelShapeProps) {
 						y={edge.labelY}
 						textAnchor="middle"
 						dominantBaseline="central"
-						fontSize={props.labelSize}
+						fontSize={props.screen(13)}
 						fill="var(--color-foreground)"
 						paintOrder="stroke"
 						stroke="var(--color-background)"
-						strokeWidth={props.labelSize * 0.5}
+						strokeWidth={props.screen(6)}
 						strokeLinejoin="round"
 						pointerEvents="none"
 					>
@@ -327,8 +326,8 @@ export function PanelShape(props: PanelShapeProps) {
 					fill="var(--color-muted)"
 					fillOpacity={0.12}
 					stroke="var(--color-fold)"
-					strokeWidth={props.unit * 0.14}
-					strokeDasharray={`${props.unit * 0.8} ${props.unit * 0.5}`}
+					strokeWidth={props.screen(1)}
+					strokeDasharray={`${props.screen(1.5)} ${props.screen(3.5)}`}
 					pointerEvents="none"
 				/>
 			)}
@@ -338,7 +337,7 @@ export function PanelShape(props: PanelShapeProps) {
 				y={centre.y}
 				textAnchor="middle"
 				dominantBaseline="central"
-				fontSize={props.unit * 2.4}
+				fontSize={props.screen(13)}
 				fill="var(--color-muted-foreground)"
 				pointerEvents="none"
 			>

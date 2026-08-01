@@ -4,7 +4,7 @@ import { useSvgPointDrag } from "../use-svg-point-drag"
 
 interface VertexHandlesProps {
 	panel: Panel
-	unit: number
+	screen: (pixels: number) => number
 	selection: Selection
 	onSelect: (vertexId: string) => void
 	onMove: (vertexId: string, x: number, y: number, done: boolean) => void
@@ -86,15 +86,15 @@ export function VertexHandles(props: VertexHandlesProps) {
 									x2={vertex.x + vertex.out.x}
 									y2={vertex.y + vertex.out.y}
 									stroke="var(--color-ring)"
-									strokeWidth={props.unit * 0.1}
+									strokeWidth={props.screen(0.8)}
 								/>
 								<Draggable
 									x={vertex.x + vertex.out.x}
 									y={vertex.y + vertex.out.y}
-									radius={props.unit * 0.7}
+									radius={props.screen(4)}
 									fill="var(--color-background)"
 									stroke="var(--color-ring)"
-									strokeWidth={props.unit * 0.14}
+									strokeWidth={props.screen(1)}
 									onDrag={(x, y, done) =>
 										props.onMoveHandle(vertex.id, "out", x - vertex.x, y - vertex.y, done)
 									}
@@ -110,15 +110,15 @@ export function VertexHandles(props: VertexHandlesProps) {
 									x2={next.x + vertex.nextIn.x}
 									y2={next.y + vertex.nextIn.y}
 									stroke="var(--color-ring)"
-									strokeWidth={props.unit * 0.1}
+									strokeWidth={props.screen(0.8)}
 								/>
 								<Draggable
 									x={next.x + vertex.nextIn.x}
 									y={next.y + vertex.nextIn.y}
-									radius={props.unit * 0.7}
+									radius={props.screen(4)}
 									fill="var(--color-background)"
 									stroke="var(--color-ring)"
-									strokeWidth={props.unit * 0.14}
+									strokeWidth={props.screen(1)}
 									onDrag={(x, y, done) =>
 										props.onMoveHandle(vertex.id, "nextIn", x - next.x, y - next.y, done)
 									}
@@ -129,11 +129,11 @@ export function VertexHandles(props: VertexHandlesProps) {
 						<Draggable
 							x={vertex.x}
 							y={vertex.y}
-							radius={props.unit * (active ? 1.05 : 0.8)}
+							radius={props.screen(active ? 6 : 4.5)}
 							square
 							fill={active ? "var(--color-foreground)" : "var(--color-background)"}
 							stroke="var(--color-foreground)"
-							strokeWidth={props.unit * 0.16}
+							strokeWidth={props.screen(1.2)}
 							onSelect={() => props.onSelect(vertex.id)}
 							onMenu={(clientX, clientY) => props.onMenu(vertex.id, clientX, clientY)}
 							onDrag={(x, y, done) => props.onMove(vertex.id, x, y, done)}

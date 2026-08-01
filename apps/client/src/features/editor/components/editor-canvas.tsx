@@ -41,14 +41,10 @@ const TICK_SPACING = 10
 const FRAME_CM = 180
 const GRID_EXTENT_CM = 600
 
-/** One centimetre, so stroke widths and type sizes below are read as real lengths. */
-const UNIT = 1
-
 interface GridProps {
-	unit: number
+	screen: (pixels: number) => number
 	extent: number
 	ticks: readonly number[]
-	tickSize: number
 }
 
 function Grid(props: GridProps) {
@@ -60,7 +56,7 @@ function Grid(props: GridProps) {
 						d="M 1 0 L 0 0 0 1"
 						fill="none"
 						stroke="var(--color-grid)"
-						strokeWidth={props.unit * 0.05}
+						strokeWidth={props.screen(0.5)}
 					/>
 				</pattern>
 				<pattern id="edit-grid-major" width={10} height={10} patternUnits="userSpaceOnUse">
@@ -69,7 +65,7 @@ function Grid(props: GridProps) {
 						d="M 10 0 L 0 0 0 10"
 						fill="none"
 						stroke="var(--color-grid-strong)"
-						strokeWidth={props.unit * 0.09}
+						strokeWidth={props.screen(0.9)}
 					/>
 				</pattern>
 			</defs>
@@ -89,7 +85,7 @@ function Grid(props: GridProps) {
 				x2={props.extent}
 				y2={0}
 				stroke="var(--color-grid-strong)"
-				strokeWidth={props.unit * 0.12}
+				strokeWidth={props.screen(1)}
 				pointerEvents="none"
 			/>
 
@@ -99,7 +95,7 @@ function Grid(props: GridProps) {
 				x2={0}
 				y2={props.extent}
 				stroke="var(--color-grid-strong)"
-				strokeWidth={props.unit * 0.12}
+				strokeWidth={props.screen(1)}
 				pointerEvents="none"
 			/>
 
@@ -107,19 +103,19 @@ function Grid(props: GridProps) {
 				<g key={value} pointerEvents="none" opacity={0.75}>
 					<text
 						x={value}
-						y={-props.tickSize * 0.6}
+						y={-props.screen(8)}
 						textAnchor="middle"
-						fontSize={props.tickSize}
+						fontSize={props.screen(12)}
 						fill="var(--color-muted-foreground)"
 					>
 						{value}
 					</text>
 					<text
-						x={-props.tickSize * 0.5}
+						x={-props.screen(7)}
 						y={value}
 						textAnchor="end"
 						dominantBaseline="central"
-						fontSize={props.tickSize}
+						fontSize={props.screen(12)}
 						fill="var(--color-muted-foreground)"
 					>
 						{value}
@@ -148,10 +144,6 @@ export function EditorCanvas(props: EditorCanvasProps) {
 		{ length: Math.floor(GRID_EXTENT_CM / TICK_SPACING) * 2 + 1 },
 		(_, index) => (index - Math.floor(GRID_EXTENT_CM / TICK_SPACING)) * TICK_SPACING,
 	).filter((value) => value !== 0)
-
-	// Axis figures are annotation, not drawing, so they hold their size on screen
-	// rather than growing with the cloth as the view zooms in.
-	const tickSize = (FRAME_CM / view.zoom) * 0.016
 
 	function panelMenu(panelId: string, clientX: number, clientY: number) {
 		const panel = findPanel(props.editor.document, panelId)
@@ -384,17 +376,16 @@ export function EditorCanvas(props: EditorCanvasProps) {
 					canvasMenu(event)
 				}}
 			>
-				<Grid unit={UNIT} extent={GRID_EXTENT_CM} ticks={ticks} tickSize={tickSize} />
+				<Grid screen={view.screen} extent={GRID_EXTENT_CM} ticks={ticks} />
 
 				{props.editor.document.panels.map((panel) => (
 					<PanelShape
 						key={panel.id}
 						document={props.editor.document}
 						panel={panel}
-						unit={UNIT}
+						screen={view.screen}
 						selection={props.editor.selection}
 						interactive={props.editor.tool === "select"}
-						labelSize={tickSize}
 						onSelectPanel={() => props.editor.select({ panelId: panel.id })}
 						onSelectEdge={(vertexId) =>
 							props.editor.select({ panelId: panel.id, edgeVertexId: vertexId })
@@ -423,7 +414,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 								<VertexHandles
 									key={panel.id}
 									panel={panel}
-									unit={UNIT}
+									screen={view.screen}
 									selection={props.editor.selection}
 									onSelect={(vertexId) => props.editor.select({ panelId: panel.id, vertexId })}
 									onMenu={vertexMenu}
@@ -454,21 +445,21 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						points={draft.map((entry) => `${entry.x},${entry.y}`).join(" ")}
 						fill="none"
 						stroke="var(--color-foreground)"
-						strokeWidth={UNIT * 0.2}
-						strokeDasharray={`${UNIT} ${UNIT * 0.6}`}
+						strokeWidth={view.screen(1.4)}
+						strokeDasharray={`${view.screen(6)} ${view.screen(4)}`}
 					/>
 				) : null}
 
 				{draft.map((entry) => (
 					<rect
 						key={`${entry.x}-${entry.y}`}
-						x={entry.x - UNIT * 0.7}
-						y={entry.y - UNIT * 0.7}
-						width={UNIT * 1.4}
-						height={UNIT * 1.4}
+						x={entry.x - view.screen(4)}
+						y={entry.y - view.screen(4)}
+						width={view.screen(8)}
+						height={view.screen(8)}
 						fill="var(--color-background)"
 						stroke="var(--color-foreground)"
-						strokeWidth={UNIT * 0.16}
+						strokeWidth={view.screen(1.2)}
 					/>
 				))}
 			</svg>

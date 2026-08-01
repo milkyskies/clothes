@@ -12,6 +12,13 @@ interface Size {
 export interface CanvasView {
 	readonly viewBox: string
 	readonly zoom: number
+	/**
+	 * Converts a size in screen pixels to the centimetres the viewBox needs to
+	 * draw it at that size. Anything that is interface rather than cloth — a
+	 * handle, a hairline, a caption — is sized through here so it holds its size
+	 * as the drawing is zoomed.
+	 */
+	readonly screen: (pixels: number) => number
 	readonly fit: () => void
 	readonly zoomBy: (factor: number) => void
 }
@@ -186,9 +193,10 @@ export function useCanvasView(
 		() => ({
 			viewBox: `${originX} ${originY} ${viewWidth} ${viewHeight}`,
 			zoom,
+			screen: (pixels: number) => pixels * centimetresPerPixel,
 			fit,
 			zoomBy,
 		}),
-		[fit, originX, originY, viewHeight, viewWidth, zoom, zoomBy],
+		[centimetresPerPixel, fit, originX, originY, viewHeight, viewWidth, zoom, zoomBy],
 	)
 }

@@ -11,9 +11,15 @@ import type { Document, Panel, Seam, Vertex } from "../document"
 
 const BODY_LENGTH = 83.5
 const SHOULDER = 23
-const NECK_RADIUS = 0.7
+/**
+ * The 衿ぐり corner is rounded unevenly: it runs flat most of the way across and
+ * then sweeps up over the last few centimetres, so the setback along the neck is
+ * much longer than the one up the shoulder.
+ */
+const NECK_SETBACK_ACROSS = 3.6
+const NECK_SETBACK_UP = 1.6
 
-/** Control-point fraction that makes a cubic sit on a quarter circle. */
+/** Control-point fraction that puts a cubic on a circular arc through a right angle. */
 const QUARTER_ROUND = 0.5523
 
 function vertices(points: readonly (readonly [string, number, number])[]): Vertex[] {
@@ -52,12 +58,12 @@ const back: Panel = {
 		{ id: "ushiro-eriguri-hidari", x: 0, y: 2 },
 		{
 			id: "ushiro-eriguri-kado",
-			x: 9 - NECK_RADIUS,
+			x: 9 - NECK_SETBACK_ACROSS,
 			y: 2,
-			out: { x: NECK_RADIUS * QUARTER_ROUND, y: 0 },
-			nextIn: { x: 0, y: NECK_RADIUS * QUARTER_ROUND },
+			out: { x: NECK_SETBACK_ACROSS * QUARTER_ROUND, y: 0 },
+			nextIn: { x: 0, y: NECK_SETBACK_UP * QUARTER_ROUND },
 		},
-		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_RADIUS },
+		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_SETBACK_UP },
 	],
 }
 
