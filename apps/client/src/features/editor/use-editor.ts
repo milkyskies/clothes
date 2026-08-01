@@ -4,11 +4,11 @@ import type { Draft } from "@/lib/drafting/draft"
 export type Tool = "select" | "pen" | "rectangle"
 
 /**
- * 製図 shapes the pieces; 組み立て says how they join. Both work on the same
- * pieces in the same places, so this changes what is live rather than which
- * screen you are on.
+ * 製図 shapes the pieces, 組み立て says how they join, 出来上がり shows what that
+ * makes and 裁ち方 says what to cut. One drawing seen four ways: the last two are
+ * derived, so nothing in them is edited except the width of the cloth.
  */
-export type Mode = "draw" | "assemble"
+export type Mode = "draw" | "assemble" | "finished" | "cutting"
 
 export interface Selection {
 	readonly panelId?: string

@@ -14,8 +14,10 @@ import { localFileStore } from "@/services/files/local-file-store"
 import { type Mode, type Tool, useEditor } from "../use-editor"
 import { useFiles } from "../use-files"
 import { CheckPanel } from "./check-panel"
+import { CuttingView } from "./cutting-view"
 import { EditorCanvas } from "./editor-canvas"
 import { FileBar } from "./file-bar"
+import { FinishedView } from "./finished-view"
 import { Inspector } from "./inspector"
 import { SeamInspector } from "./seam-inspector"
 
@@ -34,7 +36,16 @@ const TOOLS: readonly ToolEntry[] = [
 const MODES: readonly { value: Mode; label: string }[] = [
 	{ value: "draw", label: "製図" },
 	{ value: "assemble", label: "組み立て" },
+	{ value: "finished", label: "出来上がり" },
+	{ value: "cutting", label: "裁ち方" },
 ]
+
+const HINTS: Record<Mode, string> = {
+	draw: "",
+	assemble: "辺を2つ続けて押すと縫い合わせます",
+	finished: "縫い方どおりに開いた形です",
+	cutting: "生地の上に置いた形と、買う長さです",
+}
 
 export function EditorPage() {
 	const editor = useEditor(jinbeiTop())
@@ -122,9 +133,7 @@ export function EditorPage() {
 						</div>
 					</>
 				) : (
-					<span className="text-xs text-muted-foreground">
-						{"辺を2つ続けて押すと縫い合わせます"}
-					</span>
+					<span className="text-xs text-muted-foreground">{HINTS[editor.mode]}</span>
 				)}
 
 				<Separator orientation="vertical" className="h-6" />
@@ -187,16 +196,17 @@ export function EditorPage() {
 
 			<div className="flex min-h-0 flex-1">
 				<main className="min-w-0 flex-1">
-					<EditorCanvas editor={editor} />
+					{editor.mode === "finished" ? <FinishedView editor={editor} /> : null}
+					{editor.mode === "cutting" ? <CuttingView editor={editor} /> : null}
+					{editor.mode === "draw" || editor.mode === "assemble" ? (
+						<EditorCanvas editor={editor} />
+					) : null}
 				</main>
 
 				<aside className="flex w-72 shrink-0 flex-col border-l">
 					<div className="min-h-0 flex-1 overflow-y-auto">
-						{editor.mode === "assemble" ? (
-							<SeamInspector editor={editor} />
-						) : (
-							<Inspector editor={editor} />
-						)}
+						{editor.mode === "assemble" ? <SeamInspector editor={editor} /> : null}
+						{editor.mode === "draw" ? <Inspector editor={editor} /> : null}
 					</div>
 
 					<CheckPanel editor={editor} />

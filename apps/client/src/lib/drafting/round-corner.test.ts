@@ -29,6 +29,7 @@ function documentWith(panel: Panel): Draft {
 		stitches: [],
 		annotations: [],
 		body: { chest: 96, height: 170, shoulderWidth: 46, armLength: 58 },
+		fabric: { name: "反物", width: 36 },
 	}
 }
 

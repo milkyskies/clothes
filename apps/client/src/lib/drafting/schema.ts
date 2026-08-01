@@ -80,6 +80,22 @@ export const BodyReferenceSchema = Schema.Struct({
 	armLength: Schema.Number,
 })
 
+/**
+ * The cloth a draft is cut from.
+ *
+ * 反物 comes off the loom about 36cm wide and 広幅 about 110cm, and that width
+ * is what decides whether a piece fits and how many metres to buy, so it belongs
+ * to the draft rather than to a preference somewhere.
+ */
+export const FabricSchema = Schema.Struct({
+	name: Schema.String,
+	width: Schema.Number,
+})
+
+export type Fabric = Schema.Schema.Type<typeof FabricSchema>
+
+export const DEFAULT_FABRIC: Fabric = { name: "反物", width: 36 }
+
 export const DraftSchema = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
@@ -90,6 +106,7 @@ export const DraftSchema = Schema.Struct({
 	stitches: Schema.Array(StitchSchema),
 	annotations: Schema.Array(AnnotationSchema),
 	body: BodyReferenceSchema,
+	fabric: Schema.optionalWith(FabricSchema, { default: () => DEFAULT_FABRIC }),
 })
 
 export type Vertex = Schema.Schema.Type<typeof VertexSchema>
