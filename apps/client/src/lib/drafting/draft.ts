@@ -10,6 +10,7 @@ export type {
 	EdgeRef,
 	EdgeRun,
 	Fastening,
+	Guide,
 	Panel,
 	Seam,
 	Stitch,

@@ -213,6 +213,27 @@ function joinSeamEnds(draft: Draft, groups: ReturnType<typeof makeGroups>) {
 		const aStart = a.offsets.get(seam.a.edge.vertexId)
 		const bStart = b.offsets.get(seam.b.edge.vertexId)
 
+		// A run with no boundary offset is an internal line. Cloth stitched onto a
+		// face sits on solid cloth, so the boundary side's ring passes straight
+		// over the stitched stretch: its two ends join each other.
+		if (aStart !== undefined && bStart === undefined) {
+			groups.union(
+				pointKey(seam.a.edge.panelId, aStart + seam.a.from, a.total),
+				pointKey(seam.a.edge.panelId, aStart + seam.a.to, a.total),
+			)
+
+			continue
+		}
+
+		if (aStart === undefined && bStart !== undefined) {
+			groups.union(
+				pointKey(seam.b.edge.panelId, bStart + seam.b.from, b.total),
+				pointKey(seam.b.edge.panelId, bStart + seam.b.to, b.total),
+			)
+
+			continue
+		}
+
 		if (aStart === undefined || bStart === undefined) continue
 
 		const aNear = pointKey(seam.a.edge.panelId, aStart + seam.a.from, a.total)
@@ -347,6 +368,12 @@ function ringChecks(draft: Draft): CheckResult[] {
  * the mirror-ness of each placement, and which ends the seam joins must
  * multiply out to an orientation-reversing identification.
  */
+function isGuideRef(draft: Draft, edge: { panelId: string; vertexId: string }): boolean {
+	const panel = findPanel(draft, edge.panelId)
+
+	return panel?.guides?.some((guide) => guide.id === edge.vertexId) === true
+}
+
 function twistChecks(draft: Draft): CheckResult[] {
 	const flat = assemble(draft, { opened: true })
 
@@ -364,6 +391,10 @@ function twistChecks(draft: Draft): CheckResult[] {
 	const results: CheckResult[] = []
 
 	for (const seam of draft.seams) {
+		// A seam along an internal line attaches cloth to a face, and a face gives
+		// the thread no boundary direction to disagree with.
+		if (isGuideRef(draft, seam.a.edge) || isGuideRef(draft, seam.b.edge)) continue
+
 		const detA = mirrored.get(seam.a.edge.panelId)
 		const detB = mirrored.get(seam.b.edge.panelId)
 		const windA = windings.get(seam.a.edge.panelId)

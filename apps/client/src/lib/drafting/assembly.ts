@@ -19,6 +19,15 @@ export function sameEdge(a: EdgeRef, b: EdgeRef): boolean {
 	return a.panelId === b.panelId && a.vertexId === b.vertexId
 }
 
+/** The polyline of an internal line, in panel-local coordinates. */
+function guidePoints(panel: Panel, guideId: string): Point[] | undefined {
+	const guide = panel.guides?.find((entry) => entry.id === guideId)
+
+	if (guide === undefined || guide.points.length < 2) return undefined
+
+	return guide.points.map((point) => ({ x: point.x, y: point.y }))
+}
+
 export function edgeLength(draft: Draft, edge: EdgeRef): number {
 	const panel = findPanel(draft, edge.panelId)
 
@@ -26,7 +35,24 @@ export function edgeLength(draft: Draft, edge: EdgeRef): number {
 
 	const index = vertexIndex(panel, edge.vertexId)
 
-	if (index < 0) return 0
+	if (index < 0) {
+		const points = guidePoints(panel, edge.vertexId)
+
+		if (points === undefined) return 0
+
+		let total = 0
+
+		for (let step = 1; step < points.length; step += 1) {
+			const previous = points[step - 1]
+			const current = points[step]
+
+			if (previous === undefined || current === undefined) continue
+
+			total += Math.hypot(current.x - previous.x, current.y - previous.y)
+		}
+
+		return total
+	}
 
 	const path = panelPath(panel)
 	const segment = path.segments[index]
@@ -36,23 +62,29 @@ export function edgeLength(draft: Draft, edge: EdgeRef): number {
 	return segmentLength(segmentStart(path, index), segment)
 }
 
-/** Walks an edge to the point a given number of centimetres along it, in draft coordinates. */
+/**
+ * Walks an edge to the point a given number of centimetres along it, in draft
+ * coordinates. The id may name a boundary edge or an internal line; a seam
+ * cannot tell the difference, which is what lets cloth be sewn onto a face.
+ */
 export function pointAlong(draft: Draft, edge: EdgeRef, distance: number): Point | undefined {
 	const panel = findPanel(draft, edge.panelId)
 
 	if (panel === undefined) return undefined
 
 	const index = vertexIndex(panel, edge.vertexId)
+	const guided = index < 0 ? guidePoints(panel, edge.vertexId) : undefined
 	const path = panelPath(panel)
 	const segment = path.segments[index]
 
-	if (segment === undefined) return undefined
+	if (segment === undefined && guided === undefined) return undefined
 
-	const start = segmentStart(path, index)
-	const samples = [
-		...flatten({ start, segments: [segment] }).map((entry) => entry.point),
-		segment.to,
-	]
+	const start = segment === undefined ? { x: 0, y: 0 } : segmentStart(path, index)
+	const samples =
+		guided ??
+		(segment === undefined
+			? []
+			: [...flatten({ start, segments: [segment] }).map((entry) => entry.point), segment.to])
 
 	let travelled = 0
 

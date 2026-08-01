@@ -340,6 +340,60 @@ export function buildClothMesh(draft: Draft, shoulderY: number): ClothMesh {
 			}
 		}
 
+		// Internal lines get tags too: the nearest cloth particle stands in for
+		// each stretch of the line, which is exactly what a stitch through the
+		// face of the cloth does.
+		for (const guide of panel.guides ?? []) {
+			let travelled = 0
+
+			for (let leg = 1; leg < guide.points.length; leg += 1) {
+				const from = guide.points[leg - 1]
+				const to = guide.points[leg]
+
+				if (from === undefined || to === undefined) continue
+
+				const length = Math.hypot(to.x - from.x, to.y - from.y)
+				const steps = Math.max(1, Math.round(length / SPACING))
+
+				for (let stepAt = 0; stepAt <= steps; stepAt += 1) {
+					const at = stepAt / steps
+					const x = from.x + (to.x - from.x) * at
+					const y = from.y + (to.y - from.y) * at
+
+					let nearest = -1
+					let best = SPACING * SPACING
+
+					for (let index = 0; index < localPoints.length; index += 1) {
+						const candidate = localPoints[index]
+
+						if (candidate === undefined) continue
+
+						const dx = candidate.x - x
+						const dy = candidate.y - y
+						const squared = dx * dx + dy * dy
+
+						if (squared < best) {
+							best = squared
+							nearest = index
+						}
+					}
+
+					if (nearest < 0) continue
+
+					const held = tags.get(`${panel.id}/${guide.id}`) ?? []
+
+					held.push({
+						index: base + nearest,
+						edgeVertexId: guide.id,
+						arc: travelled + length * at,
+					})
+					tags.set(`${panel.id}/${guide.id}`, held)
+				}
+
+				travelled += length
+			}
+		}
+
 		const flat = localPoints.flatMap((point) => [point.x, point.y])
 		const delaunay = new Delaunator(flat)
 		const seen = new Set<string>()

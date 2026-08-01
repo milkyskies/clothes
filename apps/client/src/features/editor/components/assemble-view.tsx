@@ -162,13 +162,22 @@ export function AssembleView(props: AssembleViewProps) {
 
 		if (panel === undefined) return []
 
-		return panel.vertices.flatMap((vertex) => {
-			const edge: EdgeRef = { panelId: panel.id, vertexId: vertex.id }
+		// Internal lines are addressed exactly like boundary edges, so their
+		// stretches come from the same machinery; only the colour differs, because
+		// an unsewn internal line is a drawn mark, not an opening.
+		const lineIds = [
+			...panel.vertices.map((vertex) => ({ id: vertex.id, internal: false })),
+			...(panel.guides ?? []).map((guide) => ({ id: guide.id, internal: true })),
+		]
+
+		return lineIds.flatMap((line) => {
+			const edge: EdgeRef = { panelId: panel.id, vertexId: line.id }
 
 			return edgeStretches(draft, edge).map((stretch) => ({
-				key: `${vertex.id}-${stretch.kind}-${stretch.from.toFixed(2)}`,
+				key: `${line.id}-${stretch.kind}-${stretch.from.toFixed(2)}`,
 				edge,
 				stretch,
+				internal: line.internal,
 				points: runPolyline(draft, placement.matrix, edge, stretch.from, stretch.to),
 			}))
 		})
@@ -268,13 +277,30 @@ export function AssembleView(props: AssembleViewProps) {
 											points={pointsOf(entry.points)}
 											fill="none"
 											stroke={
-												entry.stretch.kind === "gap" ? "var(--color-cut)" : "var(--color-seam)"
+												entry.stretch.kind === "seam"
+													? "var(--color-seam)"
+													: entry.internal
+														? "var(--color-fold)"
+														: "var(--color-cut)"
 											}
 											strokeWidth={view.screen(
 												picked || under || held ? 4 : entry.stretch.kind === "gap" ? 2.4 : 1.6,
 											)}
 											strokeLinecap="round"
-											opacity={entry.stretch.kind === "gap" ? 1 : picked || under ? 0.9 : 0.5}
+											strokeDasharray={
+												entry.internal && entry.stretch.kind === "gap"
+													? `${view.screen(4)} ${view.screen(4)}`
+													: undefined
+											}
+											opacity={
+												entry.stretch.kind === "gap"
+													? entry.internal
+														? 0.7
+														: 1
+													: picked || under
+														? 0.9
+														: 0.5
+											}
 											pointerEvents="none"
 										/>
 

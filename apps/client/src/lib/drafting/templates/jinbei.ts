@@ -88,6 +88,18 @@ const frontRight: Panel = {
 		["mae-maebiraki", 0, 58.5],
 		["mae-dan", 2, 58.5],
 	]),
+	// The 紐 is stitched onto the face of the body just inside the 身八つ口, not
+	// onto the cut edge, so the line it lands on is drawn inside the piece.
+	guides: [
+		{
+			id: "himo-tsuke-mae",
+			name: "ひも付け位置",
+			points: [
+				{ x: FRONT_WIDTH - 2, y: SLEEVE_REACH + 1 },
+				{ x: FRONT_WIDTH - 2, y: SLEEVE_REACH + 1 + TIE_WIDTH },
+			],
+		},
+	],
 }
 
 const backRight: Panel = {
@@ -106,6 +118,16 @@ const backRight: Panel = {
 		{ id: "ushiro-eriguri-hidari", x: 0, y: 2 },
 		{ id: "ushiro-eriguri-kado", x: 9 - NECK_RADIUS, y: 2, bow: NECK_RADIUS * QUARTER_DEPTH },
 		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_RADIUS },
+	],
+	guides: [
+		{
+			id: "himo-tsuke-ushiro",
+			name: "ひも付け位置",
+			points: [
+				{ x: BACK_WIDTH - 2, y: SLEEVE_REACH + 1 },
+				{ x: BACK_WIDTH - 2, y: SLEEVE_REACH + 1 + TIE_WIDTH },
+			],
+		},
 	],
 }
 
@@ -251,13 +273,13 @@ function collarSeams(collar: Panel, front: Panel, back: Panel, side: "右" | "�
 	return seams
 }
 
-/** A 紐 anchored at the top of an underarm opening, which is where it is threaded through. */
-function tieSeam(tie: Panel, host: Panel, hostVertexId: string, name: string): Seam {
+/** A 紐 stitched onto the face of its piece along the ひも付け line inside the 身八つ口. */
+function tieSeam(tie: Panel, host: Panel, guideId: string, name: string): Seam {
 	return {
 		id: `himotsuke-${tie.id}`,
 		name,
 		a: { edge: edge(tie, `${tie.id}-a`), from: 0, to: TIE_WIDTH },
-		b: { edge: edge(host, hostVertexId), from: SLEEVE_REACH, to: SLEEVE_REACH + TIE_WIDTH },
+		b: { edge: edge(host, guideId), from: 0, to: TIE_WIDTH },
 		lie: "open",
 	}
 }
@@ -289,25 +311,25 @@ export function jinbeiTop(): Draft {
 		{
 			panel: rectangle("himo-mae-migi", "ひも 右前", TIE_WIDTH, TIE_LENGTH, 190),
 			host: frontRight,
-			vertexId: "mae-katasaki",
+			vertexId: "himo-tsuke-mae",
 			name: "ひも付け 右前",
 		},
 		{
 			panel: rectangle("himo-mae-hidari", "ひも 左前", TIE_WIDTH, TIE_LENGTH, 200),
 			host: frontLeft,
-			vertexId: "mae-katasaki",
+			vertexId: "himo-tsuke-mae",
 			name: "ひも付け 左前",
 		},
 		{
 			panel: rectangle("himo-ushiro-migi", "ひも 右後", TIE_WIDTH, TIE_LENGTH, 375),
 			host: backRight,
-			vertexId: "ushiro-katasaki",
+			vertexId: "himo-tsuke-ushiro",
 			name: "ひも付け 右後",
 		},
 		{
 			panel: rectangle("himo-ushiro-hidari", "ひも 左後", TIE_WIDTH, TIE_LENGTH, 385),
 			host: backLeft,
-			vertexId: "ushiro-katasaki",
+			vertexId: "himo-tsuke-ushiro",
 			name: "ひも付け 左後",
 		},
 	]

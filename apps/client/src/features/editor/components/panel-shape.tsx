@@ -234,6 +234,19 @@ export function PanelShape(props: PanelShapeProps) {
 				}}
 			/>
 
+			{(props.panel.guides ?? []).map((guide) => (
+				<polyline
+					key={guide.id}
+					points={guide.points.map((point) => `${point.x},${point.y}`).join(" ")}
+					fill="none"
+					stroke="var(--color-fold)"
+					strokeWidth={props.screen(1.1)}
+					strokeDasharray={`${props.screen(3)} ${props.screen(3)}`}
+					pointerEvents="none"
+					opacity={0.8}
+				/>
+			))}
+
 			{gapSegments.map((gap) => (
 				<polyline
 					key={gap.key}

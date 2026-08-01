@@ -38,6 +38,20 @@ export const CreaseSchema = Schema.Struct({
 	b: CreasePointSchema,
 })
 
+/**
+ * A line drawn inside a piece that cloth can be sewn onto.
+ *
+ * Construction is not only edge to edge: a 紐 is stitched onto the face of the
+ * body, a patch onto a chest. The line is addressable exactly like a boundary
+ * edge, so a seam cannot tell whether it runs along the cut or across the
+ * cloth — which is the point.
+ */
+export const GuideSchema = Schema.Struct({
+	id: Schema.String,
+	name: Schema.String,
+	points: Schema.Array(Schema.Struct({ x: Schema.Number, y: Schema.Number })),
+})
+
 export const PanelSchema = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
@@ -48,6 +62,7 @@ export const PanelSchema = Schema.Struct({
 	y: Schema.Number,
 	vertices: Schema.Array(VertexSchema),
 	creases: Schema.optional(Schema.Array(CreaseSchema)),
+	guides: Schema.optional(Schema.Array(GuideSchema)),
 })
 
 export const EdgeRefSchema = Schema.Struct({
@@ -153,6 +168,7 @@ export const DraftSchema = Schema.Struct({
 
 export type Vertex = Schema.Schema.Type<typeof VertexSchema>
 export type Crease = Schema.Schema.Type<typeof CreaseSchema>
+export type Guide = Schema.Schema.Type<typeof GuideSchema>
 export type Panel = Schema.Schema.Type<typeof PanelSchema>
 export type EdgeRef = Schema.Schema.Type<typeof EdgeRefSchema>
 export type EdgeRun = Schema.Schema.Type<typeof EdgeRunSchema>
