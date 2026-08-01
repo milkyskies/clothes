@@ -1,0 +1,1 @@
+/Users/onesc/.claude/kit/modules/pnpm/rules/pnpm.md

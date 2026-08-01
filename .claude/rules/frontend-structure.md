@@ -1,0 +1,1 @@
+/Users/onesc/.claude/kit/templates/react-spa/rules/frontend-structure.md

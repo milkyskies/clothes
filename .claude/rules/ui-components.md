@@ -1,0 +1,1 @@
+/Users/onesc/.claude/kit/templates/react-spa/variants/ui/shadcn/rules/ui-components.md

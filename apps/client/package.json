@@ -1,0 +1,45 @@
+{
+	"name": "@clothes/client",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"typecheck": "tsr generate && tsc --noEmit",
+		"test": "vitest run",
+		"check": "pnpm lint && pnpm typecheck && pnpm test",
+		"routes:generate": "tsr generate"
+	},
+	"dependencies": {
+		"@clothes/api": "workspace:*",
+		"@tanstack/react-query": "^5.100.11",
+		"@tanstack/react-router": "^1.170.4",
+		"clsx": "^2.1.1",
+		"effect": "^3.21.0",
+		"hono": "^4.12.10",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"tailwind-merge": "^3.6.0",
+		"tailwind-variants": "^3.2.2",
+		"@base-ui/react": "^1.4.1",
+		"@remixicon/react": "^4.5.0",
+		"lucide-react": "^0.460.0"
+	},
+	"devDependencies": {
+		"@clothes/tsconfig": "workspace:*",
+		"@biomejs/biome": "^2.4.15",
+		"@milkyskies/biome-config": "^0.1.2",
+		"@tailwindcss/vite": "^4.0.0",
+		"@tanstack/router-cli": "^1.167.0",
+		"@tanstack/router-plugin": "^1.168.0",
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"@vitejs/plugin-react": "^4.3.4",
+		"tailwindcss": "^4.0.0",
+		"typescript": "^5.7.0",
+		"vite": "^6.0.0",
+		"vitest": "^3.0.0"
+	}
+}

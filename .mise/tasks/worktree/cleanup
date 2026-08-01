@@ -1,0 +1,13 @@
+#!/bin/bash
+#MISE description="Remove worktree"
+#MISE args=["num"]
+set -euo pipefail
+
+NUM="$1"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+WT_DIR="$REPO_ROOT/../clothes-worktrees/$NUM"
+
+git worktree remove "$WT_DIR" 2>/dev/null || true
+git worktree prune
+
+echo "Cleaned up worktree $NUM"

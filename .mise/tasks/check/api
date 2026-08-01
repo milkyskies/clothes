@@ -1,0 +1,7 @@
+#!/bin/bash
+#MISE description="Lint and typecheck API"
+set -euo pipefail
+
+cd apps/api
+pnpm lint
+pnpm typecheck

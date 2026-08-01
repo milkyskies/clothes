@@ -1,0 +1,25 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "clothes-api",
+	"main": "src/app.ts",
+	"compatibility_date": "2026-04-01",
+	"vars": {
+		// Comma-separated allowed CORS origins. Override locally via .dev.vars.
+		"CORS_ORIGINS": "https://clothes.app"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "clothes",
+			// Placeholder until `wrangler d1 create clothes` issues the real id. It must
+			// stay non-empty: miniflare asserts on an empty database_id and `wrangler dev`
+			// will not start. Local dev ignores the value and uses .wrangler/state.
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "drizzle/migrations"
+		}
+	],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	}
+}

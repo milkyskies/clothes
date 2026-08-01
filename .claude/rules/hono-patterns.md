@@ -1,0 +1,1 @@
+/Users/onesc/.claude/kit/templates/hono-api/rules/hono-patterns.md

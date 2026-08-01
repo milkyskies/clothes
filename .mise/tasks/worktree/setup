@@ -1,0 +1,40 @@
+#!/bin/bash
+#MISE description="Create worktree with full setup (branch, env, deps, migrations)"
+set -euo pipefail
+
+NUM="$1"
+BRANCH="$2"
+BASE="${3:-origin/main}"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+WT_DIR="$REPO_ROOT/../clothes-worktrees/$NUM"
+
+# Fetch so the worktree bases off fresh main without switching the root's checked-out branch.
+git fetch origin
+
+git worktree add "$WT_DIR" -b "$BRANCH" "$BASE"
+cd "$WT_DIR"
+
+# Copy ALL env-style secret files from main repo into the worktree.
+# Covers .env, .env.local, .env.development, .dev.vars (wrangler), and
+# any .env.<env> variant. Skips .example since those are already tracked
+# by git, plus heavy build artefacts.
+find "$REPO_ROOT" \
+	\( -name ".env" -o -name ".env.*" -o -name ".dev.vars" -o -name ".dev.vars.*" \) \
+	-not -name "*.example" \
+	-not -path "*/node_modules/*" \
+	-not -path "*/.git/*" \
+	-not -path "*/dist/*" \
+	-not -path "*/.wrangler/*" \
+	| while read -r envfile; do
+		relative="${envfile#$REPO_ROOT/}"
+		mkdir -p "$WT_DIR/$(dirname "$relative")"
+		cp -f "$envfile" "$WT_DIR/$relative"
+	done
+
+pnpm install
+
+# D1's local SQLite lives in this worktree's own .wrangler/state, so a fresh
+# worktree starts with an empty database and needs the migrations applied.
+mise run db:migrate
+
+echo "Worktree ready at $WT_DIR"

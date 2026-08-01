@@ -1,0 +1,5 @@
+8cf73662862334680bb95141d8623bcdcee34faa
+2026-08-01T00:00:00Z
+hono-api + react-spa
+modules: core, ts, ts-shared, pnpm, ci, security
+variants: hono-api db=d1, api_style=rpc, auth=none; react-spa ui=shadcn, auth=none, mobile=none
