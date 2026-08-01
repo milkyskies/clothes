@@ -1,57 +1,29 @@
 import { runLength, seamMismatch } from "@/lib/drafting/assemble"
-import { type Draft, type EdgeRun, findPanel, panelPath, vertexIndex } from "@/lib/drafting/draft"
-import { flatten } from "@/lib/drafting/geometry/measure"
+import { pointAlong } from "@/lib/drafting/assembly"
+import type { Draft, EdgeRun, Seam } from "@/lib/drafting/draft"
 import type { Point } from "@/lib/drafting/geometry/path"
-import { segmentStart } from "@/lib/drafting/geometry/path"
-
-/** Walks an edge to the point a given number of centimetres along it. */
-function pointAlong(draft: Draft, run: EdgeRun, distance: number): Point | undefined {
-	const panel = findPanel(draft, run.edge.panelId)
-
-	if (panel === undefined) return undefined
-
-	const index = vertexIndex(panel, run.edge.vertexId)
-	const path = panelPath(panel)
-	const segment = path.segments[index]
-
-	if (segment === undefined) return undefined
-
-	const from = segmentStart(path, index)
-	const samples = [...flatten({ start: from, segments: [segment] }).map((s) => s.point), segment.to]
-
-	let travelled = 0
-
-	for (let step = 1; step < samples.length; step += 1) {
-		const previous = samples[step - 1]
-		const current = samples[step]
-
-		if (previous === undefined || current === undefined) continue
-
-		const length = Math.hypot(current.x - previous.x, current.y - previous.y)
-
-		if (travelled + length >= distance) {
-			const along = length === 0 ? 0 : (distance - travelled) / length
-
-			return {
-				x: panel.x + previous.x + (current.x - previous.x) * along,
-				y: panel.y + previous.y + (current.y - previous.y) * along,
-			}
-		}
-
-		travelled += length
-	}
-
-	const last = samples[samples.length - 1]
-
-	return last === undefined ? undefined : { x: panel.x + last.x, y: panel.y + last.y }
-}
 
 function runPoints(draft: Draft, run: EdgeRun): Point[] {
-	const total = Math.max(1, Math.round(runLength(run) / 2))
+	const steps = Math.max(1, Math.round(runLength(run) / 2))
 
-	return Array.from({ length: total + 1 }, (_, step) =>
-		pointAlong(draft, run, run.from + ((run.to - run.from) * step) / total),
+	return Array.from({ length: steps + 1 }, (_, step) =>
+		pointAlong(draft, run.edge, run.from + ((run.to - run.from) * step) / steps),
 	).filter((entry): entry is Point => entry !== undefined)
+}
+
+/** The pairs of points a seam actually brings together, near end first. */
+function ties(draft: Draft, seam: Seam): [Point, Point][] {
+	const aNear = pointAlong(draft, seam.a.edge, seam.a.from)
+	const aFar = pointAlong(draft, seam.a.edge, seam.a.to)
+	const bNear = pointAlong(draft, seam.b.edge, seam.reversed === true ? seam.b.to : seam.b.from)
+	const bFar = pointAlong(draft, seam.b.edge, seam.reversed === true ? seam.b.from : seam.b.to)
+
+	const pairs: [Point, Point][] = []
+
+	if (aNear !== undefined && bNear !== undefined) pairs.push([aNear, bNear])
+	if (aFar !== undefined && bFar !== undefined) pairs.push([aFar, bFar])
+
+	return pairs
 }
 
 interface SeamLayerProps {
@@ -62,8 +34,9 @@ interface SeamLayerProps {
 }
 
 /**
- * Draws each seam as the two runs it covers plus a tie between their middles, so
- * which edge is sewn to which is visible without reading a list.
+ * Draws each seam as the two runs it covers plus a tie at each end, so which
+ * edge is sewn to which is visible without reading a list, and a piece sewn on
+ * turned around shows up as crossed ties.
  */
 export function SeamLayer(props: SeamLayerProps) {
 	return (
@@ -71,12 +44,13 @@ export function SeamLayer(props: SeamLayerProps) {
 			{props.draft.seams.map((seam) => {
 				const aPoints = runPoints(props.draft, seam.a)
 				const bPoints = runPoints(props.draft, seam.b)
-				const aMid = aPoints[Math.floor(aPoints.length / 2)]
-				const bMid = bPoints[Math.floor(bPoints.length / 2)]
+				const pairs = ties(props.draft, seam)
 
 				const chosen = props.selectedSeamId === seam.id
 				const mismatch = seamMismatch(seam)
 				const colour = mismatch > 0.5 ? "var(--color-destructive)" : "var(--color-seam)"
+
+				const label = pairs[0] === undefined ? undefined : middle(pairs)
 
 				return (
 					<g key={seam.id} opacity={chosen ? 1 : 0.75}>
@@ -92,41 +66,51 @@ export function SeamLayer(props: SeamLayerProps) {
 							/>
 						))}
 
-						{aMid === undefined || bMid === undefined ? null : (
-							<>
-								<line
-									x1={aMid.x}
-									y1={aMid.y}
-									x2={bMid.x}
-									y2={bMid.y}
-									stroke={colour}
-									strokeWidth={props.screen(chosen ? 1.6 : 1)}
-									strokeDasharray={`${props.screen(5)} ${props.screen(4)}`}
-								/>
+						{pairs.map(([from, to], index) => (
+							<line
+								key={`${seam.id}-tie-${index === 0 ? "near" : "far"}`}
+								x1={from.x}
+								y1={from.y}
+								x2={to.x}
+								y2={to.y}
+								stroke={colour}
+								strokeWidth={props.screen(chosen ? 1.6 : 1)}
+								strokeDasharray={`${props.screen(5)} ${props.screen(4)}`}
+							/>
+						))}
 
-								{/* biome-ignore lint/a11y/noStaticElementInteractions: the seam list in the inspector is the keyboard path. */}
-								<text
-									x={(aMid.x + bMid.x) / 2}
-									y={(aMid.y + bMid.y) / 2}
-									textAnchor="middle"
-									dominantBaseline="central"
-									fontSize={props.screen(12)}
-									fill={colour}
-									paintOrder="stroke"
-									stroke="var(--color-background)"
-									strokeWidth={props.screen(5)}
-									strokeLinejoin="round"
-									pointerEvents="all"
-									className="cursor-pointer"
-									onClick={() => props.onSelectSeam(seam.id)}
-								>
-									{mismatch > 0.5 ? `${seam.name} ⚠ ${mismatch}cm` : seam.name}
-								</text>
-							</>
+						{label === undefined ? null : (
+							/* biome-ignore lint/a11y/noStaticElementInteractions: the seam list in the inspector is the keyboard path. */
+							<text
+								x={label.x}
+								y={label.y}
+								textAnchor="middle"
+								dominantBaseline="central"
+								fontSize={props.screen(12)}
+								fill={colour}
+								paintOrder="stroke"
+								stroke="var(--color-background)"
+								strokeWidth={props.screen(5)}
+								strokeLinejoin="round"
+								pointerEvents="all"
+								className="cursor-pointer"
+								onClick={() => props.onSelectSeam(seam.id)}
+							>
+								{mismatch > 0.5 ? `${seam.name} ⚠ ${mismatch}cm` : seam.name}
+							</text>
 						)}
 					</g>
 				)
 			})}
 		</g>
 	)
+}
+
+function middle(pairs: readonly [Point, Point][]): Point {
+	const points = pairs.flat()
+
+	return {
+		x: points.reduce((total, entry) => total + entry.x, 0) / points.length,
+		y: points.reduce((total, entry) => total + entry.y, 0) / points.length,
+	}
 }

@@ -45,6 +45,14 @@ export const SeamSchema = Schema.Struct({
 	name: Schema.String,
 	a: EdgeRunSchema,
 	b: EdgeRunSchema,
+	/**
+	 * Whether the second run is walked backwards against the first.
+	 *
+	 * Two edges of equal length can still be joined two ways, and the wrong one
+	 * turns the piece inside out, so which end meets which has to be said rather
+	 * than assumed. Absent reads as start meeting start.
+	 */
+	reversed: Schema.optional(Schema.Boolean),
 })
 
 export const StitchKindSchema = Schema.Literal("finish", "topstitch", "bartack", "hand")

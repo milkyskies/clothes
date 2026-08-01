@@ -13,6 +13,7 @@ import { jinbeiTop } from "@/lib/drafting/templates/jinbei"
 import { localFileStore } from "@/services/files/local-file-store"
 import { type Mode, type Tool, useEditor } from "../use-editor"
 import { useFiles } from "../use-files"
+import { CheckPanel } from "./check-panel"
 import { EditorCanvas } from "./editor-canvas"
 import { FileBar } from "./file-bar"
 import { Inspector } from "./inspector"
@@ -189,12 +190,16 @@ export function EditorPage() {
 					<EditorCanvas editor={editor} />
 				</main>
 
-				<aside className="w-72 shrink-0 border-l">
-					{editor.mode === "assemble" ? (
-						<SeamInspector editor={editor} />
-					) : (
-						<Inspector editor={editor} />
-					)}
+				<aside className="flex w-72 shrink-0 flex-col border-l">
+					<div className="min-h-0 flex-1 overflow-y-auto">
+						{editor.mode === "assemble" ? (
+							<SeamInspector editor={editor} />
+						) : (
+							<Inspector editor={editor} />
+						)}
+					</div>
+
+					<CheckPanel editor={editor} />
 				</aside>
 			</div>
 		</div>

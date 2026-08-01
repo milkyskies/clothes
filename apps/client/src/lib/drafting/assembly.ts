@@ -1,6 +1,6 @@
 import { type Draft, type EdgeRef, type EdgeRun, findPanel, panelPath, vertexIndex } from "./draft"
-import { segmentLength } from "./geometry/measure"
-import { segmentStart } from "./geometry/path"
+import { flatten, segmentLength } from "./geometry/measure"
+import { type Point, segmentStart } from "./geometry/path"
 
 export interface Span {
 	readonly from: number
@@ -26,6 +26,51 @@ export function edgeLength(draft: Draft, edge: EdgeRef): number {
 	if (segment === undefined) return 0
 
 	return segmentLength(segmentStart(path, index), segment)
+}
+
+/** Walks an edge to the point a given number of centimetres along it, in draft coordinates. */
+export function pointAlong(draft: Draft, edge: EdgeRef, distance: number): Point | undefined {
+	const panel = findPanel(draft, edge.panelId)
+
+	if (panel === undefined) return undefined
+
+	const index = vertexIndex(panel, edge.vertexId)
+	const path = panelPath(panel)
+	const segment = path.segments[index]
+
+	if (segment === undefined) return undefined
+
+	const start = segmentStart(path, index)
+	const samples = [
+		...flatten({ start, segments: [segment] }).map((entry) => entry.point),
+		segment.to,
+	]
+
+	let travelled = 0
+
+	for (let step = 1; step < samples.length; step += 1) {
+		const previous = samples[step - 1]
+		const current = samples[step]
+
+		if (previous === undefined || current === undefined) continue
+
+		const length = Math.hypot(current.x - previous.x, current.y - previous.y)
+
+		if (travelled + length >= distance) {
+			const along = length === 0 ? 0 : (distance - travelled) / length
+
+			return {
+				x: panel.x + previous.x + (current.x - previous.x) * along,
+				y: panel.y + previous.y + (current.y - previous.y) * along,
+			}
+		}
+
+		travelled += length
+	}
+
+	const last = samples[samples.length - 1]
+
+	return last === undefined ? undefined : { x: panel.x + last.x, y: panel.y + last.y }
 }
 
 function merge(spans: readonly Span[]): Span[] {

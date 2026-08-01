@@ -5,6 +5,7 @@ import { Label } from "@/features/shared/ui/label"
 import { Separator } from "@/features/shared/ui/separator"
 import {
 	findSeam,
+	flipSeam,
 	removeSeam,
 	renameSeam,
 	runLength,
@@ -153,6 +154,23 @@ export function SeamInspector(props: SeamInspectorProps) {
 
 						<RunFields editor={props.editor} seam={seam} side="a" />
 						<RunFields editor={props.editor} seam={seam} side="b" />
+
+						<div className="space-y-1.5">
+							<Button
+								variant="outline"
+								size="sm"
+								className="h-7 w-full text-xs"
+								onClick={() => props.editor.apply(flipSeam(draft, seam.id))}
+							>
+								{"向きを反転"}
+							</Button>
+
+							<p className="text-xs text-muted-foreground">
+								{seam.reversed === true
+									? "後の辺を逆向きに合わせています。"
+									: "両方の辺を同じ向きに合わせています。"}
+							</p>
+						</div>
 
 						{seamMismatch(seam) > 0.5 ? (
 							<p className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive">
