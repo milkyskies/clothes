@@ -217,23 +217,20 @@ export function setEdgeBow(
 	})
 }
 
-const CIRCULAR_TENSION = 0.552
-
 /**
- * Rounds the corner at `vertexId` by pulling back `before` centimetres along the
- * incoming edge and `after` along the outgoing one.
+ * Rounds the corner at `vertexId` so the curve clears the corner point by `gap`
+ * centimetres.
  *
- * This is how Japanese drafts state a curve — 衿ぐり is written as two setbacks
- * from a corner, drawn with a 曲線定規 — rather than as handle positions, so the
- * two numbers are the input and the control points are derived.
+ * That gap is the figure a 製図 prints against a rounded corner — the 0.7 beside
+ * a 衿ぐり is the sliver between the sharp corner and the curve — so it is the
+ * input, and the radius and setbacks are worked out from it. For a turn of angle
+ * θ an arc of radius r clears its corner by r·(1/sin(θ/2) − 1).
  */
 export function roundCorner(
 	document: Document,
 	panelId: string,
 	vertexId: string,
-	before: number,
-	after: number,
-	tension = CIRCULAR_TENSION,
+	gap: number,
 ): Document {
 	const panel = document.panels.find((entry) => entry.id === panelId)
 
@@ -262,11 +259,20 @@ export function roundCorner(
 	const forwardX = (next.x - corner.x) / outgoing
 	const forwardY = (next.y - corner.y) / outgoing
 
-	const start = { x: corner.x - backX * before, y: corner.y - backY * before }
-	const end = { x: corner.x + forwardX * after, y: corner.y + forwardY * after }
+	const alignment = Math.max(-1, Math.min(1, -(backX * forwardX + backY * forwardY)))
+	const turn = Math.acos(alignment)
+	const half = Math.sin(turn / 2)
 
-	// The rounded run bows toward the corner it replaces, by the depth that a
-	// circular arc through those two setbacks would reach.
+	if (half <= 0 || half >= 1) return document
+
+	const radius = gap / (1 / half - 1)
+	const setback = Math.min(radius / Math.tan(turn / 2), incoming * 0.9, outgoing * 0.9)
+
+	const start = { x: corner.x - backX * setback, y: corner.y - backY * setback }
+	const end = { x: corner.x + forwardX * setback, y: corner.y + forwardY * setback }
+
+	// Depth is measured from the chord and the gap from the corner, and the corner
+	// sits `toCorner` beyond that chord, so the two differ by exactly the gap.
 	const chordX = end.x - start.x
 	const chordY = end.y - start.y
 	const chord = Math.hypot(chordX, chordY)
@@ -276,7 +282,7 @@ export function roundCorner(
 		id: nextId("v"),
 		x: start.x,
 		y: start.y,
-		bow: Number((toCorner * tension).toFixed(3)),
+		bow: Number((toCorner - Math.sign(toCorner) * gap).toFixed(3)),
 	}
 
 	const endVertex: Vertex = { id: nextId("v"), x: end.x, y: end.y }

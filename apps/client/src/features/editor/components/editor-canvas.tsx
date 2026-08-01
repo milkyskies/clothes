@@ -254,10 +254,18 @@ export function EditorCanvas(props: EditorCanvasProps) {
 			title: "点",
 			items: [
 				{
-					label: "角を丸める（2cm）",
+					label: "角を丸める（0.7cm）",
 					icon: CutIcon,
 					onSelect: () => {
-						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 2, 2))
+						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 0.7))
+						props.editor.select({ panelId })
+					},
+				},
+				{
+					label: "角を大きく丸める（2cm）",
+					icon: CutIcon,
+					onSelect: () => {
+						props.editor.apply(roundCorner(props.editor.document, panelId, vertexId, 2))
 						props.editor.select({ panelId })
 					},
 				},

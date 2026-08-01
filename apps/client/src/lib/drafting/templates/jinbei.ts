@@ -12,16 +12,15 @@ import type { Document, Panel, Seam, Vertex } from "../document"
 const BODY_LENGTH = 83.5
 const SHOULDER = 23
 /**
- * The 衿ぐり corner is rounded unevenly: it runs flat most of the way across and
- * then sweeps up over the last few centimetres, so the setback along the neck is
- * much longer than the one up the shoulder.
+ * The 製図 prints 0.7 against the 衿ぐり corner: the gap between the sharp corner
+ * and the curve. A quarter-round clears its corner by r·(√2−1), so that gap
+ * gives a radius of about 1.7cm, and the notch runs flat until the last stretch.
  */
-const NECK_SETBACK_ACROSS = 3.6
-const NECK_SETBACK_UP = 1.6
+const NECK_CORNER_GAP = 0.7
+const NECK_RADIUS = NECK_CORNER_GAP / (Math.SQRT2 - 1)
 
-/** How far the rounded run bows toward the corner it replaces, and how late it turns. */
-const NECK_DEPTH = 0.7
-const NECK_DEEPEST_AT = 0.72
+/** A quarter circle drawn as one cubic sits 1−√2/2 of its radius off the chord. */
+const QUARTER_DEPTH = 1 - Math.SQRT1_2
 
 function vertices(points: readonly (readonly [string, number, number])[]): Vertex[] {
 	return points.map(([id, x, y]) => ({ id, x, y }))
@@ -59,12 +58,11 @@ const back: Panel = {
 		{ id: "ushiro-eriguri-hidari", x: 0, y: 2 },
 		{
 			id: "ushiro-eriguri-kado",
-			x: 9 - NECK_SETBACK_ACROSS,
+			x: 9 - NECK_RADIUS,
 			y: 2,
-			bow: NECK_DEPTH,
-			bowAt: NECK_DEEPEST_AT,
+			bow: NECK_RADIUS * QUARTER_DEPTH,
 		},
-		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_SETBACK_UP },
+		{ id: "ushiro-eriguri-ue", x: 9, y: 2 - NECK_RADIUS },
 	],
 }
 
