@@ -6,7 +6,6 @@ import { DuplicateIcon } from "@/features/shared/icons/duplicate-icon"
 import { FitIcon } from "@/features/shared/icons/fit-icon"
 import { PenIcon } from "@/features/shared/icons/pen-icon"
 import { RectangleIcon } from "@/features/shared/icons/rectangle-icon"
-import { addSeam } from "@/lib/drafting/assemble"
 import type { EdgeRef } from "@/lib/drafting/draft"
 import { findPanel, findVertex, nextVertex } from "@/lib/drafting/draft"
 import {
@@ -30,7 +29,6 @@ import type { Editor } from "../use-editor"
 import { snapValue } from "../use-editor"
 import { ContextMenu, type MenuTarget } from "./context-menu"
 import { PanelShape } from "./panel-shape"
-import { SeamLayer } from "./seam-layer"
 import { StitchLayer } from "./stitch-layer"
 import { VertexHandles } from "./vertex-handles"
 
@@ -138,9 +136,6 @@ export function EditorCanvas(props: EditorCanvasProps) {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [draft, setDraft] = useState<{ x: number; y: number }[]>([])
 	const [menu, setMenu] = useState<MenuTarget | undefined>(undefined)
-	const [pending, setPending] = useState<EdgeRef | undefined>(undefined)
-
-	const assembling = props.editor.mode === "assemble"
 
 	const view = useCanvasView(containerRef, {
 		width: FRAME_CM,
@@ -401,23 +396,10 @@ export function EditorCanvas(props: EditorCanvasProps) {
 						screen={view.screen}
 						selection={props.editor.selection}
 						interactive={props.editor.tool === "select"}
-						pending={pending?.panelId === panel.id ? pending.vertexId : undefined}
 						onSelectPanel={() => props.editor.select({ panelId: panel.id })}
-						onSelectEdge={(vertexId) => {
-							const edge = { panelId: panel.id, vertexId }
-
+						onSelectEdge={(vertexId) =>
 							props.editor.select({ panelId: panel.id, edgeVertexId: vertexId })
-
-							if (!assembling) return
-
-							if (pending === undefined) {
-								setPending(edge)
-								return
-							}
-
-							props.editor.apply(addSeam(props.editor.draft, pending, edge))
-							setPending(undefined)
-						}}
+						}
 						onMenu={(kind, id, clientX, clientY) =>
 							kind === "panel" ? panelMenu(id, clientX, clientY) : edgeMenu(id, clientX, clientY)
 						}
@@ -437,16 +419,7 @@ export function EditorCanvas(props: EditorCanvasProps) {
 
 				<StitchLayer draft={props.editor.draft} screen={view.screen} selectedStitchId={undefined} />
 
-				<SeamLayer
-					draft={props.editor.draft}
-					screen={view.screen}
-					selectedSeamId={props.editor.selection.seamId}
-					onSelectSeam={(seamId) => props.editor.select({ seamId })}
-				/>
-
-				{!assembling &&
-				props.editor.tool === "select" &&
-				props.editor.selection.panelId !== undefined
+				{props.editor.tool === "select" && props.editor.selection.panelId !== undefined
 					? props.editor.draft.panels
 							.filter((panel) => panel.id === props.editor.selection.panelId)
 							.map((panel) => (

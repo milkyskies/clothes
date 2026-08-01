@@ -13,6 +13,7 @@ import { jinbeiTop } from "@/lib/drafting/templates/jinbei"
 import { localFileStore } from "@/services/files/local-file-store"
 import { type Mode, type Tool, useEditor } from "../use-editor"
 import { useFiles } from "../use-files"
+import { AssembleView } from "./assemble-view"
 import { CheckPanel } from "./check-panel"
 import { CuttingView } from "./cutting-view"
 import { EditorCanvas } from "./editor-canvas"
@@ -42,7 +43,7 @@ const MODES: readonly { value: Mode; label: string }[] = [
 
 const HINTS: Record<Mode, string> = {
 	draw: "",
-	assemble: "辺を2つ続けて押すと縫い合わせます",
+	assemble: "",
 	finished: "縫い方どおりに開いた形です",
 	cutting: "生地の上に置いた形と、買う長さです",
 }
@@ -196,11 +197,10 @@ export function EditorPage() {
 
 			<div className="flex min-h-0 flex-1">
 				<main className="min-w-0 flex-1">
+					{editor.mode === "draw" ? <EditorCanvas editor={editor} /> : null}
+					{editor.mode === "assemble" ? <AssembleView editor={editor} /> : null}
 					{editor.mode === "finished" ? <FinishedView editor={editor} /> : null}
 					{editor.mode === "cutting" ? <CuttingView editor={editor} /> : null}
-					{editor.mode === "draw" || editor.mode === "assemble" ? (
-						<EditorCanvas editor={editor} />
-					) : null}
 				</main>
 
 				<aside className="flex w-72 shrink-0 flex-col border-l">
