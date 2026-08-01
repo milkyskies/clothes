@@ -1,7 +1,14 @@
 import { useCallback, useMemo, useState } from "react"
 import type { Draft } from "@/lib/drafting/draft"
 
-export type Tool = "select" | "pen" | "rectangle" | "seam"
+export type Tool = "select" | "pen" | "rectangle"
+
+/**
+ * 製図 shapes the pieces; 組み立て says how they join. Both work on the same
+ * pieces in the same places, so this changes what is live rather than which
+ * screen you are on.
+ */
+export type Mode = "draw" | "assemble"
 
 export interface Selection {
 	readonly panelId?: string
@@ -14,11 +21,13 @@ const HISTORY_LIMIT = 200
 
 export interface Editor {
 	readonly draft: Draft
+	readonly mode: Mode
 	readonly tool: Tool
 	readonly selection: Selection
 	readonly snap: number
 	readonly canUndo: boolean
 	readonly canRedo: boolean
+	readonly setMode: (mode: Mode) => void
 	readonly setTool: (tool: Tool) => void
 	readonly select: (selection: Selection) => void
 	readonly setSnap: (snap: number) => void
@@ -41,9 +50,18 @@ export function useEditor(initial: Draft): Editor {
 	const [present, setPresent] = useState(initial)
 	const [future, setFuture] = useState<Draft[]>([])
 
+	const [mode, setModeState] = useState<Mode>("draw")
 	const [tool, setTool] = useState<Tool>("select")
 	const [selection, setSelection] = useState<Selection>({})
 	const [snap, setSnap] = useState(0.5)
+
+	// Selections do not carry across: a point means nothing while assembling, and
+	// a seam means nothing while drawing.
+	const setMode = useCallback((next: Mode) => {
+		setModeState(next)
+		setSelection({})
+		setTool("select")
+	}, [])
 
 	const apply = useCallback(
 		(next: Draft, coalesce = false) => {
@@ -94,11 +112,13 @@ export function useEditor(initial: Draft): Editor {
 	return useMemo(
 		() => ({
 			draft: present,
+			mode,
 			tool,
 			selection,
 			snap,
 			canUndo: past.length > 0,
 			canRedo: future.length > 0,
+			setMode,
 			setTool,
 			select: setSelection,
 			setSnap,
@@ -107,6 +127,19 @@ export function useEditor(initial: Draft): Editor {
 			undo,
 			redo,
 		}),
-		[apply, future.length, load, past.length, present, redo, selection, snap, tool, undo],
+		[
+			apply,
+			future.length,
+			load,
+			mode,
+			past.length,
+			present,
+			redo,
+			selection,
+			setMode,
+			snap,
+			tool,
+			undo,
+		],
 	)
 }

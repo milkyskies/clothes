@@ -11,11 +11,12 @@ import { Separator } from "@/features/shared/ui/separator"
 import { addRectanglePanel } from "@/lib/drafting/edit"
 import { jinbeiTop } from "@/lib/drafting/templates/jinbei"
 import { localFileStore } from "@/services/files/local-file-store"
-import { type Tool, useEditor } from "../use-editor"
+import { type Mode, type Tool, useEditor } from "../use-editor"
 import { useFiles } from "../use-files"
 import { EditorCanvas } from "./editor-canvas"
 import { FileBar } from "./file-bar"
 import { Inspector } from "./inspector"
+import { SeamInspector } from "./seam-inspector"
 
 interface ToolEntry {
 	readonly value: Tool
@@ -27,6 +28,11 @@ interface ToolEntry {
 const TOOLS: readonly ToolEntry[] = [
 	{ value: "select", label: "えらぶ", shortcut: "V", icon: SelectIcon },
 	{ value: "pen", label: "ペン", shortcut: "P", icon: PenIcon },
+]
+
+const MODES: readonly { value: Mode; label: string }[] = [
+	{ value: "draw", label: "製図" },
+	{ value: "assemble", label: "組み立て" },
 ]
 
 export function EditorPage() {
@@ -160,7 +166,11 @@ export function EditorPage() {
 				</main>
 
 				<aside className="w-72 shrink-0 border-l">
-					<Inspector editor={editor} />
+					{editor.mode === "assemble" ? (
+						<SeamInspector editor={editor} />
+					) : (
+						<Inspector editor={editor} />
+					)}
 				</aside>
 			</div>
 		</div>

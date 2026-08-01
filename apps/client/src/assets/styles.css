@@ -26,6 +26,7 @@
 	--ring: oklch(0.7 0 0);
 
 	--cut: oklch(0.58 0.19 27);
+	--seam: oklch(0.52 0.14 265);
 	--fold: oklch(0.55 0.11 155);
 	--grid: oklch(0.94 0 0);
 	--grid-strong: oklch(0.87 0 0);
@@ -53,6 +54,7 @@
 	--ring: oklch(0.5 0 0);
 
 	--cut: oklch(0.68 0.18 27);
+	--seam: oklch(0.7 0.13 265);
 	--fold: oklch(0.68 0.11 155);
 	--grid: oklch(0.24 0 0);
 	--grid-strong: oklch(0.31 0 0);
@@ -80,6 +82,7 @@
 	--color-ring: var(--ring);
 
 	--color-cut: var(--cut);
+	--color-seam: var(--seam);
 	--color-fold: var(--fold);
 	--color-grid: var(--grid);
 	--color-grid-strong: var(--grid-strong);

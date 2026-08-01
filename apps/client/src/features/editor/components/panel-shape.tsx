@@ -13,6 +13,8 @@ interface PanelShapeProps {
 	screen: (pixels: number) => number
 	selection: Selection
 	interactive: boolean
+	/** Vertex id of the edge waiting for a partner to sew it to, if it is on this piece. */
+	pending: string | undefined
 	onSelectPanel: () => void
 	onSelectEdge: (vertexId: string) => void
 	onMovePanel: (x: number, y: number, done: boolean) => void
@@ -290,13 +292,15 @@ export function PanelShape(props: PanelShapeProps) {
 
 			{props.interactive
 				? edges
-						.filter((edge) => edge.vertexId === active)
+						.filter((edge) => edge.vertexId === active || edge.vertexId === props.pending)
 						.map((edge) => (
 							<polyline
 								key={`${edge.vertexId}-active`}
 								points={edge.points}
 								fill="none"
-								stroke="var(--color-foreground)"
+								stroke={
+									edge.vertexId === props.pending ? "var(--color-seam)" : "var(--color-foreground)"
+								}
 								strokeWidth={props.screen(4)}
 								strokeLinecap="round"
 								opacity={0.35}
