@@ -51,11 +51,21 @@ export function useFiles(options: FilesOptions): Files {
 	const [snap, setSnapState] = useState(0.5)
 
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-	const settling = useRef(true)
+	const started = useRef(false)
+
+	/**
+	 * The exact draft this file was last opened or saved at.
+	 *
+	 * Unsaved work is decided by comparing against it rather than by swallowing
+	 * the first change after a load: the load path is asynchronous and runs twice
+	 * under React's strict mode, so any counting of changes gets it wrong and
+	 * offers a recovery to someone who has not edited anything.
+	 */
+	const baseline = useRef<Draft | undefined>(undefined)
 
 	const adopt = useCallback(
 		(id: string, fileName: string, at: number, draft: Draft) => {
-			settling.current = true
+			baseline.current = draft
 			setCurrentId(id)
 			setName(fileName)
 			setSavedAt(at)
@@ -67,6 +77,10 @@ export function useFiles(options: FilesOptions): Files {
 	)
 
 	useEffect(() => {
+		if (started.current) return
+
+		started.current = true
+
 		const settings = readSettings()
 
 		setSnapState(settings.snap)
@@ -97,11 +111,7 @@ export function useFiles(options: FilesOptions): Files {
 
 	useEffect(() => {
 		if (!ready || currentId === undefined) return
-
-		if (settling.current) {
-			settling.current = false
-			return
-		}
+		if (options.draft === baseline.current) return
 
 		setDirty(true)
 		clearTimeout(timer.current)
@@ -129,6 +139,8 @@ export function useFiles(options: FilesOptions): Files {
 			draft: { ...options.draft, name },
 		})
 		await options.store.clearRecovery(currentId)
+
+		baseline.current = options.draft
 
 		setSavedAt(at)
 		setDirty(false)
@@ -198,6 +210,7 @@ export function useFiles(options: FilesOptions): Files {
 	const restore = useCallback(() => {
 		if (recovery === undefined) return
 
+		baseline.current = undefined
 		options.onLoad(recovery.draft)
 		setRecovery(undefined)
 		setDirty(true)

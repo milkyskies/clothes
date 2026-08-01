@@ -1,3 +1,4 @@
+import { runLength } from "./assemble"
 import { boundaryOffsets, pointAlong, pointAtBoundary } from "./assembly"
 import {
 	type Crease,
@@ -280,77 +281,84 @@ export function assemble(draft: Draft, options: AssembleOptions = {}): Assembly 
 		return placements.get(`${panelId}#${part}`) ?? placements.get(`${panelId}#0`)
 	}
 
-	function walk(from: string) {
-		const queue = [from]
-		const done = new Set<string>()
-
-		while (queue.length > 0) {
-			const current = queue.shift()
-
-			if (current === undefined || done.has(current)) continue
-
-			done.add(current)
+	/**
+	 * Adds pieces one at a time, always by the longest seam available.
+	 *
+	 * A piece is swung into place by one of the seams holding it, and the longest
+	 * is the steadiest: two points 3mm apart cannot say which way a 70cm strip of
+	 * collar points. Taking the best seam anywhere on the frontier, rather than
+	 * following one piece at a time, is what stops a collar being hung off the
+	 * 衿ぐり notch just because the back happened to be reached first.
+	 */
+	function grow() {
+		for (;;) {
+			let best:
+				| { seam: Seam; heldPanel: Panel; panel: Panel; heldRun: EdgeRun; movingRun: EdgeRun }
+				| undefined
+			let bestGrip = -1
 
 			for (const seam of draft.seams) {
-				const neighbour = otherPanel(seam, current)
+				const aPlaced = placements.has(`${seam.a.edge.panelId}#0`)
+				const bPlaced = placements.has(`${seam.b.edge.panelId}#0`)
 
-				if (neighbour === undefined) continue
-				if (placements.has(`${neighbour}#0`)) continue
+				if (aPlaced === bPlaced) continue
 
-				const heldPanel = findPanel(draft, current)
-				const panel = findPanel(draft, neighbour)
+				const heldRun = aPlaced ? seam.a : seam.b
+				const movingRun = aPlaced ? seam.b : seam.a
+				const heldPanel = findPanel(draft, heldRun.edge.panelId)
+				const panel = findPanel(draft, movingRun.edge.panelId)
+				const grip = Math.max(runLength(seam.a), runLength(seam.b))
 
-				if (heldPanel === undefined || panel === undefined) continue
+				if (heldPanel === undefined || panel === undefined || grip <= bestGrip) continue
 
-				const onCurrent = seam.a.edge.panelId === current
-				const heldRun = onCurrent ? seam.a : seam.b
-				const movingRun = onCurrent ? seam.b : seam.a
-				const placed = matrixFor(current, partOfRun(draft, heldPanel, heldRun))
-
-				if (placed === undefined) continue
-
-				const anchor = runEnds(draft, heldRun, false)
-				const target = runEnds(draft, movingRun, seam.reversed === true)
-
-				if (anchor === undefined || target === undefined) continue
-
-				const seamLine: [Point, Point] = [
-					apply(placed.matrix, anchor[0]),
-					apply(placed.matrix, anchor[1]),
-				]
-
-				const keepSide = sideOf(seamLine, apply(placed.matrix, centroid(heldPanel)))
-				const straight = alignTo(target, seamLine, false)
-
-				// A seam that lies open puts the next piece beside this one; a seam that
-				// folds brings it back over the top, which is the same alignment taken to
-				// the other side of the seam line.
-				const folds = seam.lie === "fold" && folding
-				const sameSide = sideOf(seamLine, apply(straight, centroid(panel))) * keepSide > 0
-				const flip = folds ? !sameSide : sameSide
-				const base = flip ? alignTo(target, seamLine, true) : straight
-
-				// The moving piece was aligned by whichever of its halves this seam is on,
-				// so when that is the far half the whole piece has to come back across its
-				// own fold to sit right.
-				const movingPart = partOfRun(draft, panel, movingRun)
-				const crease = folding ? panel.creases?.[0] : undefined
-				const creaseFrom = crease === undefined ? undefined : creasePoint(draft, panel.id, crease.a)
-				const creaseTo = crease === undefined ? undefined : creasePoint(draft, panel.id, crease.b)
-
-				const settled =
-					movingPart === 1 && creaseFrom !== undefined && creaseTo !== undefined
-						? compose(base, reflectAcross(creaseFrom, creaseTo))
-						: base
-
-				place(
-					panel,
-					settled,
-					movingPart === 1 ? !(flip !== placed.flipped) : flip !== placed.flipped,
-				)
-
-				queue.push(neighbour)
+				bestGrip = grip
+				best = { seam, heldPanel, panel, heldRun, movingRun }
 			}
+
+			if (best === undefined) return
+
+			const { seam, heldPanel, panel, heldRun, movingRun } = best
+			const placed = matrixFor(heldPanel.id, partOfRun(draft, heldPanel, heldRun))
+			const anchor = runEnds(draft, heldRun, false)
+			const target = runEnds(draft, movingRun, seam.reversed === true)
+
+			if (placed === undefined || anchor === undefined || target === undefined) {
+				place(panel, IDENTITY, false)
+				continue
+			}
+
+			const seamLine: [Point, Point] = [
+				apply(placed.matrix, anchor[0]),
+				apply(placed.matrix, anchor[1]),
+			]
+
+			const keepSide = sideOf(seamLine, apply(placed.matrix, centroid(heldPanel)))
+			const straight = alignTo(target, seamLine, false)
+
+			// A seam that lies open puts the next piece beside this one; a seam that
+			// folds brings it back over the top, which is the same alignment taken to
+			// the other side of the seam line.
+			const folds = seam.lie === "fold" && folding
+			const sameSide = sideOf(seamLine, apply(straight, centroid(panel))) * keepSide > 0
+			const flip = folds ? !sameSide : sameSide
+			const base = flip ? alignTo(target, seamLine, true) : straight
+
+			// The moving piece was aligned by whichever of its halves this seam is on,
+			// so when that is the far half the whole piece has to come back across its
+			// own fold to sit right.
+			const movingPart = partOfRun(draft, panel, movingRun)
+			const crease = folding ? panel.creases?.[0] : undefined
+			const creaseFrom = crease === undefined ? undefined : creasePoint(draft, panel.id, crease.a)
+			const creaseTo = crease === undefined ? undefined : creasePoint(draft, panel.id, crease.b)
+
+			const settled =
+				movingPart === 1 && creaseFrom !== undefined && creaseTo !== undefined
+					? compose(base, reflectAcross(creaseFrom, creaseTo))
+					: base
+
+			const facing = flip !== placed.flipped
+
+			place(panel, settled, movingPart === 1 ? !facing : facing)
 		}
 	}
 
@@ -365,7 +373,7 @@ export function assemble(draft: Draft, options: AssembleOptions = {}): Assembly 
 		if (placements.size > 0) loose.push(panel.id)
 
 		place(panel, IDENTITY, false)
-		walk(panel.id)
+		grow()
 	}
 
 	const closures: Closure[] = []

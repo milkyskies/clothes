@@ -93,12 +93,6 @@ describe("assemble", () => {
 
 		expect(assembled.loose).toEqual(expect.not.arrayContaining(bodyAndSleeves))
 	})
-
-	it("keeps_the_えり_loose_because_nothing_sews_it_on_yet", () => {
-		const assembled = assemble(jinbeiTop())
-
-		expect(assembled.loose).toContain("eri-migi")
-	})
 })
 
 describe("folding", () => {

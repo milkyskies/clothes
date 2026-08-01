@@ -1,4 +1,5 @@
-import type { Annotation, Draft, Panel, Seam, Vertex } from "../draft"
+import { edgeLength } from "../assembly"
+import type { Annotation, Draft, EdgeRef, Panel, Seam, Vertex } from "../draft"
 
 /**
  * 甚平（上）, M size, taken from a commercial 製図 whose figures are 縫い代込み.
@@ -16,10 +17,14 @@ const BACK_WIDTH = 32
 
 /** How far down the side seam the sleeve reaches, on the front and on the back alike. */
 const SLEEVE_REACH = 31
+const TIE_WIDTH = 6
 const UNDERARM_OPENING = 12
 
 const SLEEVE_LENGTH = 32
 const SLEEVE_WIDTH = 62
+
+const COLLAR_WIDTH = 12
+const TIE_LENGTH = 38
 
 /**
  * The 製図 prints 0.7 against the 衿ぐり corner: the gap between the sharp corner
@@ -38,6 +43,10 @@ function vertices(points: readonly (readonly [string, number, number])[]): Verte
 	return points.map(([id, x, y]) => ({ id, x, y }))
 }
 
+function edge(panel: Panel, vertexId: string): EdgeRef {
+	return { panelId: panel.id, vertexId }
+}
+
 /**
  * The other one of a pair.
  *
@@ -47,6 +56,22 @@ function vertices(points: readonly (readonly [string, number, number])[]): Verte
  */
 function pairOf(panel: Panel, id: string, name: string, x: number): Panel {
 	return { ...panel, id, name, x }
+}
+
+function rectangle(id: string, name: string, across: number, along: number, x: number): Panel {
+	return {
+		id,
+		name,
+		quantity: 1,
+		x,
+		y: 0,
+		vertices: vertices([
+			[`${id}-a`, 0, 0],
+			[`${id}-b`, across, 0],
+			[`${id}-c`, across, along],
+			[`${id}-d`, 0, along],
+		]),
+	}
 }
 
 const frontRight: Panel = {
@@ -108,41 +133,40 @@ const sleeveRight: Panel = {
 	],
 }
 
-const collarRight: Panel = {
-	id: "eri-migi",
-	name: "えり 右",
-	quantity: 1,
-	x: 137,
-	y: 0,
-	vertices: vertices([
-		["eri-ue", 0, 0],
-		["eri-soto", 12, 0],
-		["eri-shita", 12, 78],
-		["eri-uchi", 0, 78],
-	]),
-}
-
-const tie: Panel = {
-	id: "himo",
-	name: "ひも",
-	quantity: 4,
-	x: 190,
-	y: 0,
-	vertices: vertices([
-		["himo-a", 0, 0],
-		["himo-b", 6, 0],
-		["himo-c", 6, 38],
-		["himo-d", 0, 38],
-	]),
-}
-
 const frontLeft = pairOf(frontRight, "mae-migoro-hidari", "前身頃 左", 220)
 const backLeft = pairOf(backRight, "ushiro-migoro-hidari", "後ろ身頃 左", 273)
 const sleeveLeft = pairOf(sleeveRight, "sode-hidari", "そで 左", 315)
-const collarLeft = pairOf(collarRight, "eri-hidari", "えり 左", 357)
 
-function edge(panel: Panel, vertexId: string) {
-	return { panelId: panel.id, vertexId }
+const BODY: readonly Panel[] = [frontRight, backRight, sleeveRight, frontLeft, backLeft, sleeveLeft]
+
+/** A draft with nothing joined yet, used only to measure the outlines. */
+function ruler(panels: readonly Panel[]): Draft {
+	return {
+		id: "ruler",
+		name: "ruler",
+		panels,
+		seams: [],
+		stitches: [],
+		annotations: [],
+		body: { chest: 96, height: 170, shoulderWidth: 46, armLength: 58 },
+		fabric: { name: "広幅", width: 110 },
+	}
+}
+
+/**
+ * The 衿ぐり, edge by edge, from the shoulder point inwards to the centre back.
+ *
+ * The collar has to cover exactly this and the 打ち合わせ below it, so its length
+ * is measured off the pieces rather than typed in: a neckline that is redrawn
+ * takes the collar with it.
+ */
+function neckEdges(): readonly { vertexId: string; length: number }[] {
+	const measure = ruler(BODY)
+
+	return ["ushiro-eriguri-ue", "ushiro-eriguri-kado", "ushiro-eriguri-hidari"].map((vertexId) => ({
+		vertexId,
+		length: edgeLength(measure, edge(backRight, vertexId)),
+	}))
 }
 
 function sideSeams(front: Panel, back: Panel, sleeve: Panel, side: "右" | "左"): Seam[] {
@@ -191,74 +215,163 @@ function sideSeams(front: Panel, back: Panel, sleeve: Panel, side: "右" | "左"
 	]
 }
 
-const seams: Seam[] = [
-	{
-		id: "se-chushin",
-		name: "背中心",
-		a: { edge: edge(backRight, "ushiro-suso-hidari"), from: 0, to: BACK_CENTRE },
-		b: { edge: edge(backLeft, "ushiro-suso-hidari"), from: 0, to: BACK_CENTRE },
-		lie: "open",
-	},
-	...sideSeams(frontRight, backRight, sleeveRight, "右"),
-	...sideSeams(frontLeft, backLeft, sleeveLeft, "左"),
-]
+/**
+ * The collar, running from the hem end of the 打ち合わせ up and round to the
+ * centre back. Its inner edge is covered end to end, in four seams because the
+ * 衿ぐり is drawn as a notch of three edges rather than as one.
+ */
+function collarSeams(collar: Panel, front: Panel, back: Panel, side: "右" | "左"): Seam[] {
+	const diagonal = edgeLength(ruler(BODY), edge(front, "mae-dan"))
 
-const annotations: Annotation[] = [
-	{
-		id: "uchiawase",
-		name: "打ち合わせ",
-		run: { edge: edge(frontRight, "mae-dan"), from: 0, to: 61.2 },
-	},
-	{
-		id: "miyatsukuchi",
-		name: "身八つ口",
-		run: {
-			edge: edge(frontRight, "mae-katasaki"),
-			from: SLEEVE_REACH,
-			to: SLEEVE_REACH + UNDERARM_OPENING,
+	const seams: Seam[] = [
+		{
+			id: `eritsuke-uchiawase-${side}`,
+			name: `衿付け 打ち合わせ${side}`,
+			a: { edge: edge(collar, `${collar.id}-d`), from: 0, to: diagonal },
+			b: { edge: edge(front, "mae-dan"), from: 0, to: diagonal },
+			lie: "fold",
 		},
-	},
-	{
-		id: "furi",
-		name: "振り",
-		run: {
-			edge: edge(backRight, "ushiro-katasaki"),
-			from: SLEEVE_REACH,
-			to: SLEEVE_REACH + UNDERARM_OPENING,
-		},
-	},
-	{
-		id: "sodeguchi-migi",
-		name: "袖口 右",
-		run: { edge: edge(sleeveRight, "sode-guchi"), from: 0, to: SLEEVE_WIDTH },
-	},
-	{
-		id: "sodeguchi-hidari",
-		name: "袖口 左",
-		run: { edge: edge(sleeveLeft, "sode-guchi"), from: 0, to: SLEEVE_WIDTH },
-	},
-	{
-		id: "suso",
-		name: "裾",
-		run: { edge: edge(frontRight, "mae-suso-migi"), from: 0, to: FRONT_WIDTH },
-	},
-]
+	]
+
+	let cursor = diagonal
+
+	for (const neck of neckEdges()) {
+		seams.push({
+			id: `eritsuke-${neck.vertexId}-${side}`,
+			name: `衿付け 衿ぐり${side}`,
+			a: { edge: edge(collar, `${collar.id}-d`), from: cursor, to: cursor + neck.length },
+			b: { edge: edge(back, neck.vertexId), from: 0, to: neck.length },
+			reversed: true,
+			lie: "fold",
+		})
+
+		cursor += neck.length
+	}
+
+	return seams
+}
+
+/** A 紐 anchored at the top of an underarm opening, which is where it is threaded through. */
+function tieSeam(tie: Panel, host: Panel, hostVertexId: string, name: string): Seam {
+	return {
+		id: `himotsuke-${tie.id}`,
+		name,
+		a: { edge: edge(tie, `${tie.id}-a`), from: 0, to: TIE_WIDTH },
+		b: { edge: edge(host, hostVertexId), from: SLEEVE_REACH, to: SLEEVE_REACH + TIE_WIDTH },
+		lie: "open",
+	}
+}
+
+function collar(id: string, name: string, length: number, x: number): Panel {
+	return {
+		...rectangle(id, name, COLLAR_WIDTH, length, x),
+		// The strip is doubled lengthwise before it goes on, so 12cm of cloth
+		// finishes as a 6cm collar.
+		creases: [
+			{
+				id: `${id}-yama`,
+				name: "衿山",
+				a: { vertexId: `${id}-a`, at: COLLAR_WIDTH / 2 },
+				b: { vertexId: `${id}-c`, at: COLLAR_WIDTH / 2 },
+			},
+		],
+	}
+}
 
 export function jinbeiTop(): Draft {
+	const diagonal = edgeLength(ruler(BODY), edge(frontRight, "mae-dan"))
+	const collarLength = neckEdges().reduce((total, neck) => total + neck.length, diagonal)
+
+	const collarRight = collar("eri-migi", "えり 右", collarLength, 137)
+	const collarLeft = collar("eri-hidari", "えり 左", collarLength, 157)
+
+	const ties: readonly { panel: Panel; host: Panel; vertexId: string; name: string }[] = [
+		{
+			panel: rectangle("himo-mae-migi", "ひも 右前", TIE_WIDTH, TIE_LENGTH, 190),
+			host: frontRight,
+			vertexId: "mae-katasaki",
+			name: "ひも付け 右前",
+		},
+		{
+			panel: rectangle("himo-mae-hidari", "ひも 左前", TIE_WIDTH, TIE_LENGTH, 200),
+			host: frontLeft,
+			vertexId: "mae-katasaki",
+			name: "ひも付け 左前",
+		},
+		{
+			panel: rectangle("himo-ushiro-migi", "ひも 右後", TIE_WIDTH, TIE_LENGTH, 375),
+			host: backRight,
+			vertexId: "ushiro-katasaki",
+			name: "ひも付け 右後",
+		},
+		{
+			panel: rectangle("himo-ushiro-hidari", "ひも 左後", TIE_WIDTH, TIE_LENGTH, 385),
+			host: backLeft,
+			vertexId: "ushiro-katasaki",
+			name: "ひも付け 左後",
+		},
+	]
+
+	const seams: Seam[] = [
+		{
+			id: "se-chushin",
+			name: "背中心",
+			a: { edge: edge(backRight, "ushiro-suso-hidari"), from: 0, to: BACK_CENTRE },
+			b: { edge: edge(backLeft, "ushiro-suso-hidari"), from: 0, to: BACK_CENTRE },
+			lie: "open",
+		},
+		...sideSeams(frontRight, backRight, sleeveRight, "右"),
+		...sideSeams(frontLeft, backLeft, sleeveLeft, "左"),
+		...collarSeams(collarRight, frontRight, backRight, "右"),
+		...collarSeams(collarLeft, frontLeft, backLeft, "左"),
+		...ties.map((tie) => tieSeam(tie.panel, tie.host, tie.vertexId, tie.name)),
+	]
+
+	const annotations: Annotation[] = [
+		{
+			id: "uchiawase",
+			name: "打ち合わせ",
+			run: { edge: edge(frontRight, "mae-dan"), from: 0, to: diagonal },
+		},
+		{
+			id: "miyatsukuchi",
+			name: "身八つ口",
+			run: {
+				edge: edge(frontRight, "mae-katasaki"),
+				from: SLEEVE_REACH + TIE_WIDTH,
+				to: SLEEVE_REACH + UNDERARM_OPENING,
+			},
+		},
+		{
+			id: "furi",
+			name: "振り",
+			run: {
+				edge: edge(backRight, "ushiro-katasaki"),
+				from: SLEEVE_REACH + TIE_WIDTH,
+				to: SLEEVE_REACH + UNDERARM_OPENING,
+			},
+		},
+		{
+			id: "sodeguchi-migi",
+			name: "袖口 右",
+			run: { edge: edge(sleeveRight, "sode-guchi"), from: 0, to: SLEEVE_WIDTH },
+		},
+		{
+			id: "sodeguchi-hidari",
+			name: "袖口 左",
+			run: { edge: edge(sleeveLeft, "sode-guchi"), from: 0, to: SLEEVE_WIDTH },
+		},
+		{
+			id: "suso",
+			name: "裾",
+			run: { edge: edge(frontRight, "mae-suso-migi"), from: 0, to: FRONT_WIDTH },
+		},
+	]
+
 	return {
 		id: "jinbei-top-m",
 		name: "甚平（上）M",
-		panels: [
-			frontRight,
-			backRight,
-			sleeveRight,
-			collarRight,
-			frontLeft,
-			backLeft,
-			sleeveLeft,
-			collarLeft,
-			tie,
-		],
+		panels: [...BODY, collarRight, collarLeft, ...ties.map((tie) => tie.panel)],
 		seams,
 		stitches: [],
 		annotations,
