@@ -102,6 +102,17 @@ export function EditorPage() {
 						))}
 					</div>
 
+					<Separator orientation="vertical" className="h-6" />
+
+					<Button
+						variant={editor.showAllowance ? "default" : "outline"}
+						size="sm"
+						className="h-7 text-xs"
+						onClick={() => editor.setShowAllowance(!editor.showAllowance)}
+					>
+						{"縫い代を見る"}
+					</Button>
+
 					<span className="ml-auto text-sm">{editor.document.name}</span>
 				</header>
 

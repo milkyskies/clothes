@@ -20,7 +20,8 @@ export interface Panel {
 	readonly id: string
 	readonly name: string
 	readonly quantity: number
-	readonly onFold: boolean
+	/** Vertex id of the edge that lies on the fold, if the piece is cut 「わ」. */
+	readonly foldEdge?: string
 	readonly x: number
 	readonly y: number
 	readonly vertices: readonly Vertex[]

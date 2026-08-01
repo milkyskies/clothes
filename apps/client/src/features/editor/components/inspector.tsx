@@ -1,4 +1,5 @@
 import { Copy, Trash2 } from "lucide-react"
+import { useState } from "react"
 import { Button } from "@/features/shared/ui/button"
 import { Input } from "@/features/shared/ui/input"
 import { Label } from "@/features/shared/ui/label"
@@ -9,9 +10,11 @@ import {
 	deletePanel,
 	deleteVertex,
 	duplicatePanel,
+	insertVertex,
 	moveVertex,
+	roundCorner,
 	setEdgeAllowance,
-	toggleEdgeCurve,
+	setFoldEdge,
 	updatePanel,
 } from "@/lib/drafting/edit"
 import type { Editor } from "../use-editor"
@@ -57,6 +60,9 @@ interface InspectorProps {
 }
 
 export function Inspector(props: InspectorProps) {
+	const [roundBefore, setRoundBefore] = useState(2)
+	const [roundAfter, setRoundAfter] = useState(2)
+
 	const { document, selection } = props.editor
 	const panel = selection.panelId === undefined ? undefined : findPanel(document, selection.panelId)
 
@@ -150,19 +156,6 @@ export function Inspector(props: InspectorProps) {
 								}
 							/>
 						</Field>
-
-						<Field label="わ（輪）">
-							<input
-								type="checkbox"
-								checked={panel.onFold}
-								onChange={(event) =>
-									props.editor.apply(
-										updatePanel(document, panel.id, { onFold: event.target.checked }),
-									)
-								}
-								className="size-4 accent-foreground"
-							/>
-						</Field>
 					</section>
 				</>
 			)}
@@ -206,6 +199,34 @@ export function Inspector(props: InspectorProps) {
 								}
 							/>
 						</Field>
+
+						<Separator />
+
+						<p className="text-xs text-muted-foreground">
+							{"角を丸める。手前の辺と先の辺から何cm戻すかで決めます。"}
+						</p>
+
+						<Field label="手前から">
+							<NumberField value={roundBefore} onChange={setRoundBefore} />
+						</Field>
+
+						<Field label="先から">
+							<NumberField value={roundAfter} onChange={setRoundAfter} />
+						</Field>
+
+						<Button
+							variant="outline"
+							size="sm"
+							className="w-full text-xs"
+							onClick={() => {
+								props.editor.apply(
+									roundCorner(document, panel.id, vertex.id, roundBefore, roundAfter),
+								)
+								props.editor.select({ panelId: panel.id })
+							}}
+						>
+							{"この角を丸める"}
+						</Button>
 					</section>
 				</>
 			) : null}
@@ -232,19 +253,45 @@ export function Inspector(props: InspectorProps) {
 							/>
 						</Field>
 
-						<Field label="次の点">
-							<span className="text-sm text-muted-foreground">
-								{nextVertex(panel, edgeVertexId)?.id ?? "—"}
-							</span>
+						<Field label="わ（折り山）">
+							<input
+								type="checkbox"
+								checked={panel.foldEdge === edgeVertexId}
+								onChange={(event) =>
+									props.editor.apply(
+										setFoldEdge(
+											document,
+											panel.id,
+											event.target.checked ? edgeVertexId : undefined,
+										),
+									)
+								}
+								className="size-4 accent-foreground"
+							/>
 						</Field>
 
 						<Button
 							variant="outline"
 							size="sm"
 							className="w-full text-xs"
-							onClick={() => props.editor.apply(toggleEdgeCurve(document, panel.id, edgeVertexId))}
+							onClick={() => {
+								const from = findVertex(panel, edgeVertexId)
+								const to = nextVertex(panel, edgeVertexId)
+
+								if (from === undefined || to === undefined) return
+
+								props.editor.apply(
+									insertVertex(
+										document,
+										panel.id,
+										edgeVertexId,
+										(from.x + to.x) / 2,
+										(from.y + to.y) / 2,
+									),
+								)
+							}}
 						>
-							{"直線とカーブを切り替える"}
+							{"真ん中に点を足す"}
 						</Button>
 
 						<div className="space-y-1 text-xs text-muted-foreground">

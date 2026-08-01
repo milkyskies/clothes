@@ -94,12 +94,6 @@ export function edgeGaps(document: Document, edge: EdgeRef): Span[] {
 	return gaps.filter((gap) => gap.to - gap.from > 0.01)
 }
 
-export function annotationsFor(document: Document, edge: EdgeRef): string[] {
-	return document.annotations
-		.filter((annotation) => sameEdge(annotation.run.edge, edge))
-		.map((annotation) => annotation.name)
-}
-
 /** Every unsewn run in the document, with whatever name a template gave it. */
 export function openings(document: Document): { edge: EdgeRef; span: Span; name: string }[] {
 	const found: { edge: EdgeRef; span: Span; name: string }[] = []

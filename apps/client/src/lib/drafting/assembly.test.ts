@@ -7,7 +7,6 @@ function rectangle(id: string, width: number, height: number): Panel {
 		id,
 		name: id,
 		quantity: 1,
-		onFold: false,
 		x: 0,
 		y: 0,
 		vertices: [

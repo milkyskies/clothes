@@ -1,5 +1,5 @@
 import { useGesture } from "@use-gesture/react"
-import { type RefObject, useCallback, useEffect, useMemo, useState } from "react"
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 8
@@ -61,6 +61,28 @@ export function useCanvasView(
 	const size = useElementSize(ref)
 	const [zoom, setZoom] = useState(1)
 	const [pan, setPan] = useState({ x: 0, y: 0 })
+	const panAllowed = useRef(false)
+
+	/**
+	 * Whether a drag pans is decided here rather than inside the gesture handler.
+	 * The gesture library binds to the container, so its listener runs before any
+	 * child can intervene, and only a capture-phase listener sees the true target
+	 * early enough to tell "grabbed the grid" from "grabbed a panel".
+	 */
+	useEffect(() => {
+		const element = ref.current
+
+		if (element === null) return
+
+		const onPointerDown = (event: PointerEvent) => {
+			panAllowed.current =
+				event.target instanceof Element && event.target.hasAttribute("data-canvas-background")
+		}
+
+		element.addEventListener("pointerdown", onPointerDown, true)
+
+		return () => element.removeEventListener("pointerdown", onPointerDown, true)
+	}, [ref])
 
 	const baseWidth = content.width + content.margin * 2
 	const baseHeight = content.height + content.margin * 2
@@ -112,9 +134,7 @@ export function useCanvasView(
 	useGesture(
 		{
 			onDrag: (gesture) => {
-				if (gesture.target instanceof Element && gesture.target.closest("[data-handle]") !== null) {
-					return
-				}
+				if (!panAllowed.current) return
 
 				setPan((current) => ({
 					x: current.x - gesture.delta[0] * centimetresPerPixel,

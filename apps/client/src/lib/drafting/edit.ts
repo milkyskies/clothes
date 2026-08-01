@@ -106,38 +106,85 @@ export function setHandle(
 	})
 }
 
-export function toggleEdgeCurve(document: Document, panelId: string, vertexId: string): Document {
+const CIRCULAR_TENSION = 0.552
+
+/**
+ * Rounds the corner at `vertexId` by pulling back `before` centimetres along the
+ * incoming edge and `after` along the outgoing one.
+ *
+ * This is how Japanese drafts state a curve — 衿ぐり is written as two setbacks
+ * from a corner, drawn with a 曲線定規 — rather than as handle positions, so the
+ * two numbers are the input and the control points are derived.
+ */
+export function roundCorner(
+	document: Document,
+	panelId: string,
+	vertexId: string,
+	before: number,
+	after: number,
+	tension = CIRCULAR_TENSION,
+): Document {
 	const panel = document.panels.find((entry) => entry.id === panelId)
 
 	if (panel === undefined) return document
 
 	const index = vertexIndex(panel, vertexId)
-	const source = panel.vertices[index]
-	const target = panel.vertices[(index + 1) % panel.vertices.length]
+	const count = panel.vertices.length
 
-	if (source === undefined || target === undefined) return document
+	if (index < 0 || count < 3) return document
 
-	if (source.out !== undefined || source.nextIn !== undefined) {
-		return setHandle(
-			setHandle(document, panelId, vertexId, "out", undefined),
-			panelId,
-			vertexId,
-			"nextIn",
-			undefined,
-		)
+	const corner = panel.vertices[index]
+	const previous = panel.vertices[(index - 1 + count) % count]
+	const next = panel.vertices[(index + 1) % count]
+
+	if (corner === undefined || previous === undefined || next === undefined) return document
+
+	const incoming = Math.hypot(corner.x - previous.x, corner.y - previous.y)
+	const outgoing = Math.hypot(next.x - corner.x, next.y - corner.y)
+
+	if (incoming === 0 || outgoing === 0) return document
+
+	const backX = (corner.x - previous.x) / incoming
+	const backY = (corner.y - previous.y) / incoming
+	const forwardX = (next.x - corner.x) / outgoing
+	const forwardY = (next.y - corner.y) / outgoing
+
+	const start = { x: corner.x - backX * before, y: corner.y - backY * before }
+	const end = { x: corner.x + forwardX * after, y: corner.y + forwardY * after }
+
+	const startVertex: Vertex = {
+		id: nextId("v"),
+		x: start.x,
+		y: start.y,
+		out: { x: backX * before * tension, y: backY * before * tension },
+		nextIn: { x: -forwardX * after * tension, y: -forwardY * after * tension },
 	}
 
-	const spanX = (target.x - source.x) / 3
-	const spanY = (target.y - source.y) / 3
+	const endVertex: Vertex = { id: nextId("v"), x: end.x, y: end.y }
 
-	return replacePanel(document, {
-		...panel,
-		vertices: panel.vertices.map((vertex) =>
-			vertex.id === vertexId
-				? { ...vertex, out: { x: spanX, y: spanY }, nextIn: { x: -spanX, y: -spanY } }
-				: vertex,
-		),
-	})
+	const vertices = [...panel.vertices]
+
+	vertices.splice(index, 1, startVertex, endVertex)
+
+	return replacePanel(document, { ...panel, vertices })
+}
+
+export function setFoldEdge(
+	document: Document,
+	panelId: string,
+	vertexId: string | undefined,
+): Document {
+	const panel = document.panels.find((entry) => entry.id === panelId)
+
+	if (panel === undefined) return document
+
+	const allowance = { ...panel.allowance }
+
+	if (panel.foldEdge !== undefined) delete allowance[panel.foldEdge]
+	// A fold is not cut, so it never carries seam allowance.
+	if (vertexId !== undefined) allowance[vertexId] = 0
+
+	return replacePanel(document, { ...panel, foldEdge: vertexId, allowance })
 }
 
 export function setEdgeAllowance(
@@ -156,18 +203,10 @@ export function setEdgeAllowance(
 	})
 }
 
-export function renamePanel(document: Document, panelId: string, name: string): Document {
-	const panel = document.panels.find((entry) => entry.id === panelId)
-
-	if (panel === undefined) return document
-
-	return replacePanel(document, { ...panel, name })
-}
-
 export function updatePanel(
 	document: Document,
 	panelId: string,
-	patch: Partial<Pick<Panel, "name" | "quantity" | "onFold">>,
+	patch: Partial<Pick<Panel, "name" | "quantity">>,
 ): Document {
 	const panel = document.panels.find((entry) => entry.id === panelId)
 
@@ -202,7 +241,6 @@ export function addRectanglePanel(
 					id: panelId,
 					name: `パーツ${document.panels.length + 1}`,
 					quantity: 1,
-					onFold: false,
 					x,
 					y,
 					vertices,
@@ -232,7 +270,6 @@ export function addPolygonPanel(
 					id: panelId,
 					name: `パーツ${document.panels.length + 1}`,
 					quantity: 1,
-					onFold: false,
 					x: originX,
 					y: originY,
 					vertices: points.map((entry) => ({

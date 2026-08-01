@@ -61,7 +61,7 @@ function Draggable(props: DraggableProps) {
 
 export function VertexHandles(props: VertexHandlesProps) {
 	return (
-		<g transform={`translate(${props.panel.x} ${props.panel.y})`} data-handle>
+		<g transform={`translate(${props.panel.x} ${props.panel.y})`}>
 			{props.panel.vertices.map((vertex, index) => {
 				const next = props.panel.vertices[(index + 1) % props.panel.vertices.length]
 				const active = props.selection.vertexId === vertex.id
